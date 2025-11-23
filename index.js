@@ -16,25 +16,48 @@
   ];
   // Supported skins configuration - IMPORTANT: These skins have FORMS, not chromas
   const SUPPORTED_SKINS = new Map([
-    [82054, { // Sahn Uzal Mordekaiser - has Forms, not chromas
-      buttonFolder: "uzal_buttons",
-      formIds: [82054, 82998, 82999], // Base + 2 forms
-      formNames: ["Default", "Form 1", "Form 2"],
-      championId: 82,
-    }],
-    [25080, { // Spirit Blossom Morgana - has Forms, not chromas
-      buttonFolder: "sbmorg_buttons",
-      formIds: [25080, 25999], // Base + 1 form
-      formNames: ["Default", "Form 1"],
-      championId: 25,
-    }],
+    [
+      82054,
+      {
+        // Sahn Uzal Mordekaiser - has Forms, not chromas
+        buttonFolder: "uzal_buttons",
+        formIds: [82054, 82998, 82999], // Base + 2 forms
+        formNames: ["Default", "Form 1", "Form 2"],
+        championId: 82,
+      },
+    ],
+    [
+      25080,
+      {
+        // Spirit Blossom Morgana - has Forms, not chromas
+        buttonFolder: "sbmorg_buttons",
+        formIds: [25080, 25999], // Base + 1 form
+        formNames: ["Default", "Form 1"],
+        championId: 25,
+      },
+    ],
   ]);
-  
+
   function isSupportedSkin(skinId) {
     if (!skinId) return false;
     if (SUPPORTED_SKINS.has(skinId)) return true;
     for (const config of SUPPORTED_SKINS.values()) {
       if (config.formIds.includes(skinId)) return true;
+    }
+    // Check for HoL skins (Kai'Sa and Ahri) - these are forms, not chromas
+    if (
+      SPECIAL_BASE_SKIN_IDS.has(skinId) ||
+      SPECIAL_CHROMA_SKIN_IDS.has(skinId)
+    ) {
+      // Check if it's a HoL skin (145070, 145071, 103085, 103086)
+      if (
+        skinId === 145070 ||
+        skinId === 145071 ||
+        skinId === 103085 ||
+        skinId === 103086
+      ) {
+        return true;
+      }
     }
     return false;
   }
@@ -97,9 +120,12 @@
         if (!isNaN(port) && port > 0) {
           // Verify cached port is still valid
           try {
-            const response = await fetch(`http://localhost:${port}/bridge-port`, {
-              signal: AbortSignal.timeout(1000)
-            });
+            const response = await fetch(
+              `http://localhost:${port}/bridge-port`,
+              {
+                signal: AbortSignal.timeout(1000),
+              }
+            );
             if (response.ok) {
               const portText = await response.text();
               const fetchedPort = parseInt(portText.trim(), 10);
@@ -107,7 +133,9 @@
                 BRIDGE_PORT = fetchedPort;
                 BRIDGE_URL = `ws://localhost:${BRIDGE_PORT}`;
                 if (window?.console) {
-                  console.log(`${LOG_PREFIX} Loaded bridge port from cache: ${BRIDGE_PORT}`);
+                  console.log(
+                    `${LOG_PREFIX} Loaded bridge port from cache: ${BRIDGE_PORT}`
+                  );
                 }
                 return true;
               }
@@ -118,12 +146,16 @@
           }
         }
       }
-      
+
       // Discovery: try /bridge-port endpoint on high ports (50000-50010)
-      for (let port = DISCOVERY_START_PORT; port <= DISCOVERY_END_PORT; port++) {
+      for (
+        let port = DISCOVERY_START_PORT;
+        port <= DISCOVERY_END_PORT;
+        port++
+      ) {
         try {
           const response = await fetch(`http://localhost:${port}/bridge-port`, {
-            signal: AbortSignal.timeout(1000)
+            signal: AbortSignal.timeout(1000),
           });
           if (response.ok) {
             const portText = await response.text();
@@ -132,7 +164,10 @@
               BRIDGE_PORT = fetchedPort;
               BRIDGE_URL = `ws://localhost:${BRIDGE_PORT}`;
               // Cache the discovered port
-              localStorage.setItem(BRIDGE_PORT_STORAGE_KEY, String(BRIDGE_PORT));
+              localStorage.setItem(
+                BRIDGE_PORT_STORAGE_KEY,
+                String(BRIDGE_PORT)
+              );
               if (window?.console) {
                 console.log(`${LOG_PREFIX} Loaded bridge port: ${BRIDGE_PORT}`);
               }
@@ -143,12 +178,16 @@
           continue;
         }
       }
-      
+
       // Fallback: try old /port endpoint for backward compatibility
-      for (let port = DISCOVERY_START_PORT; port <= DISCOVERY_END_PORT; port++) {
+      for (
+        let port = DISCOVERY_START_PORT;
+        port <= DISCOVERY_END_PORT;
+        port++
+      ) {
         try {
           const response = await fetch(`http://localhost:${port}/port`, {
-            signal: AbortSignal.timeout(1000)
+            signal: AbortSignal.timeout(1000),
           });
           if (response.ok) {
             const portText = await response.text();
@@ -156,9 +195,14 @@
             if (!isNaN(fetchedPort) && fetchedPort > 0) {
               BRIDGE_PORT = fetchedPort;
               BRIDGE_URL = `ws://localhost:${BRIDGE_PORT}`;
-              localStorage.setItem(BRIDGE_PORT_STORAGE_KEY, String(BRIDGE_PORT));
+              localStorage.setItem(
+                BRIDGE_PORT_STORAGE_KEY,
+                String(BRIDGE_PORT)
+              );
               if (window?.console) {
-                console.log(`${LOG_PREFIX} Loaded bridge port (legacy): ${BRIDGE_PORT}`);
+                console.log(
+                  `${LOG_PREFIX} Loaded bridge port (legacy): ${BRIDGE_PORT}`
+                );
               }
               return true;
             }
@@ -167,7 +211,7 @@
           continue;
         }
       }
-      
+
       if (window?.console) {
         console.warn(
           `${LOG_PREFIX} Failed to load bridge port, using default (50000)`
@@ -199,10 +243,7 @@
       chromaClickAudio.play().catch((err) => {
         // Ignore playback errors (e.g. autoplay restrictions) but log for debugging
         if (window?.console) {
-          console.debug(
-            "[FormsWheel] Failed to play chroma click sound:",
-            err
-          );
+          console.debug("[FormsWheel] Failed to play chroma click sound:", err);
         }
       });
     } catch (err) {
@@ -578,7 +619,7 @@
       bridgeReady = true;
       flushBridgeQueue();
       log.debug(`${LOG_PREFIX} Bridge socket connected`);
-      
+
       // Request hover button assets when bridge is ready
       if (!hoverButtonNormalUrl) {
         sendToBridge({
@@ -702,7 +743,9 @@
     // Handle local asset URL response from Python
     const { assetPath, chromaId, url } = data;
     log.debug(
-      `[FormsWheel] Received local asset URL: ${url} for chroma ${chromaId || 'N/A'}`
+      `[FormsWheel] Received local asset URL: ${url} for chroma ${
+        chromaId || "N/A"
+      }`
     );
 
     // Special handling: Hover button assets
@@ -711,7 +754,9 @@
       log.info(`[FormsWheel] Received hover button normal asset URL: ${url}`);
       // Update all existing hover buttons directly
       const buttons = document.querySelectorAll(BUTTON_SELECTOR);
-      log.info(`[FormsWheel] Updating ${buttons.length} existing buttons with asset URL`);
+      log.info(
+        `[FormsWheel] Updating ${buttons.length} existing buttons with asset URL`
+      );
       buttons.forEach((btn) => {
         updateHoverButtonImage(btn);
       });
@@ -729,9 +774,7 @@
 
       if (currentChromaInfoElement) {
         currentChromaInfoElement.style.backgroundImage = `url('${url}')`;
-        log.debug(
-          "[FormsWheel] Applied ARAM background image to chroma panel"
-        );
+        log.debug("[FormsWheel] Applied ARAM background image to chroma panel");
       }
     }
 
@@ -925,7 +968,7 @@
         log.debug(
           `[FormsWheel] Elementalist Lux form detected: ${data.selectedChromaId}, buttonIconPath: ${selectedChromaData.buttonIconPath}`
         );
-      // Note: Mordekaiser handling removed - now handled by ROSE-FormsWheel plugin
+        // Note: Mordekaiser handling removed - now handled by ROSE-FormsWheel plugin
       } else if (isMorgana(data.selectedChromaId)) {
         // Spirit Blossom Morgana form - get data from local functions
         const baseFormId = 25080;
@@ -960,9 +1003,7 @@
               primaryColor: null,
               colors: [],
               name: "Selected",
-              buttonIconPath: getMorganaButtonIconPath(
-                data.selectedChromaId
-              ),
+              buttonIconPath: getMorganaButtonIconPath(data.selectedChromaId),
             };
           }
         }
@@ -1120,7 +1161,7 @@
       let buttonIconPath = null;
       if (isElementalistLux(data.currentSkinId)) {
         buttonIconPath = getElementalistButtonIconPath(data.currentSkinId);
-      // Note: Mordekaiser handling removed - now handled by ROSE-FormsWheel plugin
+        // Note: Mordekaiser handling removed - now handled by ROSE-FormsWheel plugin
       } else if (isMorgana(data.currentSkinId)) {
         buttonIconPath = getMorganaButtonIconPath(data.currentSkinId);
       } else if (isHolChroma(data.currentSkinId)) {
@@ -1519,19 +1560,18 @@
     // Base skins (145070, 103085) use "risen.png"
     // HOL chromas (145071, 103086) use "immortal.png"
     let imageName;
-    let folderName;
 
     if (chromaId === baseSkinId) {
       // Base skin - use "risen.png"
       imageName = "risen.png";
-      folderName = championId === 145 ? "kaisa_buttons" : "ahri_buttons";
     } else {
       // HOL chroma - use "immortal.png"
       imageName = "immortal.png";
-      folderName = championId === 145 ? "kaisa_buttons" : "ahri_buttons";
     }
 
-    const path = `local-asset://${folderName}/${imageName}`;
+    // Assets are in the root assets folder: assets/risen.png and assets/immortal.png
+    // Note: Python's get_asset_path() automatically adds "assets/" prefix, so we just use the filename
+    const path = `local-asset://${imageName}`;
     return path;
   }
 
@@ -1550,10 +1590,7 @@
   }
 
   function isMorgana(skinId) {
-    return (
-      Number.isFinite(skinId) &&
-      (skinId === 25080 || skinId === 25999)
-    );
+    return Number.isFinite(skinId) && (skinId === 25080 || skinId === 25999);
   }
 
   function isSpecialChromaSkin(skinId) {
@@ -1926,9 +1963,7 @@
         log.info(`[FormsWheel] Skin offset: ${offset}`);
 
         if (offset === 2) {
-          log.info(
-            "[FormsWheel] Found skin item with offset 2, opening panel"
-          );
+          log.info("[FormsWheel] Found skin item with offset 2, opening panel");
           toggleChromaPanel(button, skinItem);
         } else {
           log.info(
@@ -2197,9 +2232,7 @@
 
     // If champion was unlocked, remove all buttons
     if (!championLocked && wasLocked) {
-      log.debug(
-        "[FormsWheel] Champion unlocked - removing all chroma buttons"
-      );
+      log.debug("[FormsWheel] Champion unlocked - removing all chroma buttons");
       const allButtons = document.querySelectorAll(BUTTON_SELECTOR);
       allButtons.forEach((button) => button.remove());
     } else if (championLocked && !wasLocked) {
@@ -2230,17 +2263,19 @@
 
     const isCurrent = isCurrentSkinItem(skinItem);
     const currentSkinId = skinMonitorState?.skinId ?? null;
-    
+
     // FormsWheel: Check if this is a supported skin (has Forms, not chromas)
     // Check both currentSkinId from state and skinId from the skinItem itself
     const skinData = getCachedSkinData(skinItem);
     const itemSkinId = getSkinIdFromContext(skinData, skinItem);
     const skinIdToCheck = currentSkinId || itemSkinId;
-    
+
     // Check if this skin (current or item) is supported
-    const isSupported = skinIdToCheck && (isSupportedSkin(skinIdToCheck) || getSkinConfig(skinIdToCheck) !== null);
+    const isSupported =
+      skinIdToCheck &&
+      (isSupportedSkin(skinIdToCheck) || getSkinConfig(skinIdToCheck) !== null);
     const hasChromas = isSupported; // For FormsWheel, supported skins show buttons
-    
+
     // Only show button for supported skins
     if (isCurrent && !isSupported) {
       const existingButton = skinItem.querySelector(BUTTON_SELECTOR);
@@ -2249,7 +2284,7 @@
       }
       return;
     }
-    
+
     // Don't show button if not current skin
     if (!isCurrent) {
       const existingButton = skinItem.querySelector(BUTTON_SELECTOR);
@@ -2642,7 +2677,9 @@
 
         // Forms (IDs 82998, 82999) - use index-based button paths
         const formList = forms.map((form, index) => {
-          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${index + 2}.png`; // 2.png, 3.png
+          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${
+            index + 2
+          }.png`; // 2.png, 3.png
           return {
             id: form.id,
             name: form.name,
@@ -2671,53 +2708,55 @@
     if (baseSkinId === 25080 || baseSkinId === 25999) {
       const skinConfig = getSkinConfig(baseSkinId);
       if (skinConfig && isSupportedSkin(baseSkinId)) {
-      log.debug(
-        `[getChromaData] Spirit Blossom Morgana detected (base skin: 25080) - using local Forms data`
-      );
-      const forms = getMorganaForms();
+        log.debug(
+          `[getChromaData] Spirit Blossom Morgana detected (base skin: 25080) - using local Forms data`
+        );
+        const forms = getMorganaForms();
         const baseFormId = 25080; // Always use base skin ID
         const morganaChampionId = skinConfig.championId; // Use championId from config
 
-      // Base skin (Spirit Blossom Morgana base)
-      const baseSkinChroma = {
-        id: baseFormId,
-        name: "Default",
-        imagePath: getLocalPreviewPath(
-          morganaChampionId,
-          baseFormId,
-          baseFormId,
-          true
-        ),
-        colors: [],
-        primaryColor: null,
-        selected: false,
-        locked: false,
+        // Base skin (Spirit Blossom Morgana base)
+        const baseSkinChroma = {
+          id: baseFormId,
+          name: "Default",
+          imagePath: getLocalPreviewPath(
+            morganaChampionId,
+            baseFormId,
+            baseFormId,
+            true
+          ),
+          colors: [],
+          primaryColor: null,
+          selected: false,
+          locked: false,
           buttonIconPath: `local-asset://${skinConfig.buttonFolder}/1.png`, // Use index-based path
-      };
+        };
 
         // Forms (ID 25999) - use index-based button paths
         const formList = forms.map((form, index) => {
-          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${index + 2}.png`; // 2.png
+          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${
+            index + 2
+          }.png`; // 2.png
           return {
-        id: form.id,
-        name: form.name,
-        imagePath: getLocalPreviewPath(
-          morganaChampionId,
-          baseFormId,
-          form.id,
-          false
-        ),
-        colors: form.colors || [],
-        primaryColor: null, // Forms don't have colors
-        selected: false,
+            id: form.id,
+            name: form.name,
+            imagePath: getLocalPreviewPath(
+              morganaChampionId,
+              baseFormId,
+              form.id,
+              false
+            ),
+            colors: form.colors || [],
+            primaryColor: null, // Forms don't have colors
+            selected: false,
             locked: false, // Forms are clickable
             buttonIconPath: buttonIconPath,
-        form_path: form.form_path,
+            form_path: form.form_path,
           };
         });
 
-      const allChromas = [baseSkinChroma, ...formList];
-      return markSelectedChroma(allChromas, currentSkinId);
+        const allChromas = [baseSkinChroma, ...formList];
+        return markSelectedChroma(allChromas, currentSkinId);
       }
     }
 
@@ -3067,9 +3106,7 @@
 
     // Ensure button element exists and is valid before creating panel
     if (!buttonElement) {
-      log.warn(
-        "[FormsWheel] Cannot create panel: button element not provided"
-      );
+      log.warn("[FormsWheel] Cannot create panel: button element not provided");
       return;
     }
 
@@ -3284,7 +3321,7 @@
       // FormsWheel: All supported skins use custom assets from button folder
       const baseSkinId = getBaseSkinId(chroma.id) || chroma.id;
       const skinConfig = getSkinConfig(baseSkinId);
-      
+
       // Check if this is a supported skin (has Forms, uses custom assets)
       if (skinConfig && isSupportedSkin(baseSkinId)) {
         // FormsWheel: Use custom asset buttons from button folder
@@ -3317,7 +3354,9 @@
         log.debug(
           `[FormsWheel] Button ${index + 1}: ${
             chroma.name
-          } - using custom asset button from ${skinConfig.buttonFolder} (placeholder until Python serves)`
+          } - using custom asset button from ${
+            skinConfig.buttonFolder
+          } (placeholder until Python serves)`
         );
       } else if (
         chroma.buttonIconPath &&
@@ -3763,8 +3802,7 @@
           (selectedChromaData.id >= 99991 && selectedChromaData.id <= 99999));
       const isMorgana =
         selectedChromaData &&
-        (selectedChromaData.id === 25080 ||
-          selectedChromaData.id === 25999);
+        (selectedChromaData.id === 25080 || selectedChromaData.id === 25999);
       const isHolChroma =
         selectedChromaData &&
         (selectedChromaData.id === 145070 ||
@@ -4386,4 +4424,3 @@
     });
   }
 })();
-
