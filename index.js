@@ -46,6 +46,16 @@
         championId: 875,
       },
     ],
+    [
+      147001,
+      {
+        // KDA Seraphine - has Forms, not chromas
+        buttonFolder: "kdasera_buttons",
+        formIds: [147001, 147002, 147003], // Base + 2 forms
+        formNames: ["Default", "Form 1", "Form 2"],
+        championId: 147,
+      },
+    ],
   ]);
 
   function isSupportedSkin(skinId) {
@@ -877,6 +887,14 @@
       return null;
     };
 
+    // Helper to get buttonIconPath for KDA Seraphine forms
+    const getButtonIconPathForSeraphine = (chromaId) => {
+      if (isSeraphine(chromaId)) {
+        return getSeraphineButtonIconPath(chromaId);
+      }
+      return null;
+    };
+
     // Helper to get buttonIconPath for HOL chromas
     const getButtonIconPathForHol = (chromaId) => {
       if (isHolChroma(chromaId)) {
@@ -909,6 +927,7 @@
         getButtonIconPathForMordekaiser(data.selectedChromaId) ||
         getButtonIconPathForMorgana(data.selectedChromaId) ||
         getButtonIconPathForSett(data.selectedChromaId) ||
+        getButtonIconPathForSeraphine(data.selectedChromaId) ||
         getButtonIconPathForHol(data.selectedChromaId) ||
         (selectedChromaData && selectedChromaData.id === data.selectedChromaId
           ? selectedChromaData.buttonIconPath
@@ -1072,6 +1091,47 @@
         log.debug(
           `[FormsWheel] Radiant Sett form detected: ${data.selectedChromaId}, buttonIconPath: ${selectedChromaData.buttonIconPath}`
         );
+      } else if (isSeraphine(data.selectedChromaId)) {
+        // KDA Seraphine form - get data from local functions
+        const baseFormId = 147001;
+        const seraphineChampionId = 147;
+
+        // Check if it's the base form or a form
+        if (data.selectedChromaId === baseFormId) {
+          // Base form
+          selectedChromaData = {
+            id: data.selectedChromaId,
+            primaryColor: null,
+            colors: [],
+            name: "Default",
+            buttonIconPath: getSeraphineButtonIconPath(baseFormId),
+          };
+        } else {
+          // KDA Seraphine form (147002, 147003)
+          const forms = getSeraphineForms();
+          const form = forms.find((f) => f.id === data.selectedChromaId);
+          if (form) {
+            selectedChromaData = {
+              id: data.selectedChromaId,
+              primaryColor: null,
+              colors: [],
+              name: form.name || "Selected",
+              buttonIconPath: getSeraphineButtonIconPath(form.id),
+            };
+          } else {
+            // Form not found - use button icon path anyway
+            selectedChromaData = {
+              id: data.selectedChromaId,
+              primaryColor: null,
+              colors: [],
+              name: "Selected",
+              buttonIconPath: getSeraphineButtonIconPath(data.selectedChromaId),
+            };
+          }
+        }
+        log.debug(
+          `[FormsWheel] KDA Seraphine form detected: ${data.selectedChromaId}, buttonIconPath: ${selectedChromaData.buttonIconPath}`
+        );
       } else if (isHolChroma(data.selectedChromaId)) {
         // HOL chroma - get data from local functions
         let baseSkinId;
@@ -1228,6 +1288,8 @@
         buttonIconPath = getMorganaButtonIconPath(data.currentSkinId);
       } else if (isSett(data.currentSkinId)) {
         buttonIconPath = getSettButtonIconPath(data.currentSkinId);
+      } else if (isSeraphine(data.currentSkinId)) {
+        buttonIconPath = getSeraphineButtonIconPath(data.currentSkinId);
       } else if (isHolChroma(data.currentSkinId)) {
         // Determine base skin ID and champion ID for HOL
         let baseSkinId;
@@ -1583,6 +1645,28 @@
     return forms;
   }
 
+  // Get KDA Seraphine Forms data locally (same as Python's get_seraphine_forms)
+  function getSeraphineForms() {
+    const forms = [
+      {
+        id: 147002,
+        name: "Form 1",
+        colors: [],
+        form_path: "Seraphine/Forms/KDA Seraphine Form 1.zip",
+      },
+      {
+        id: 147003,
+        name: "Form 2",
+        colors: [],
+        form_path: "Seraphine/Forms/KDA Seraphine Form 2.zip",
+      },
+    ];
+    log.debug(
+      `[getSeraphineForms] Created ${forms.length} KDA Seraphine Forms with real IDs (147002, 147003)`
+    );
+    return forms;
+  }
+
   // Get local preview image path for special skins (like Python's ChromaPreviewManager)
   // Path structure: {champion_id}/{skin_id}/{chroma_id}/{chroma_id}.png
   // For base skin: {champion_id}/{skin_id}/{skin_id}.png
@@ -1662,6 +1746,28 @@
     return path;
   }
 
+  // Get local button icon path for KDA Seraphine forms
+  // Path: assets/kdasera_buttons/{button_number}.png
+  // Maps: 147001 (base) -> 1.png, 147002 (form 1) -> 2.png, 147003 (form 2) -> 3.png
+  function getSeraphineButtonIconPath(formId) {
+    // Request icon path from Python via bridge
+    // Python will return the local file path or serve it via HTTP
+    // Map form IDs to button numbers
+    let buttonNumber;
+    if (formId === 147001) {
+      buttonNumber = 1; // Base skin
+    } else if (formId === 147002) {
+      buttonNumber = 2; // Form 1
+    } else if (formId === 147003) {
+      buttonNumber = 3; // Form 2
+    } else {
+      // Fallback to form ID if unknown
+      buttonNumber = formId;
+    }
+    const path = `local-asset://kdasera_buttons/${buttonNumber}.png`;
+    return path;
+  }
+
   // Get button icon path for HOL chromas (Kai'Sa and Ahri)
   function getHolButtonIconPath(championId, chromaId, baseSkinId) {
     // Determine which button icon to use based on chroma ID
@@ -1705,6 +1811,13 @@
     return (
       Number.isFinite(skinId) &&
       (skinId === 875066 || skinId === 875998 || skinId === 875999)
+    );
+  }
+
+  function isSeraphine(skinId) {
+    return (
+      Number.isFinite(skinId) &&
+      (skinId === 147001 || skinId === 147002 || skinId === 147003)
     );
   }
 
@@ -2914,6 +3027,63 @@
             name: form.name,
             imagePath: getLocalPreviewPath(
               settChampionId,
+              baseFormId,
+              form.id,
+              false
+            ),
+            colors: form.colors || [],
+            primaryColor: null, // Forms don't have colors
+            selected: false,
+            locked: false, // Forms are clickable
+            buttonIconPath: buttonIconPath,
+            form_path: form.form_path,
+          };
+        });
+
+        const allChromas = [baseSkinChroma, ...formList];
+        return markSelectedChroma(allChromas, currentSkinId);
+      }
+    }
+
+    // SPECIAL CASE: KDA Seraphine (skin ID 147001) - use local Forms data
+    // FormsWheel: Handle Seraphine forms using SUPPORTED_SKINS configuration
+    if (baseSkinId === 147001 || baseSkinId === 147002 || baseSkinId === 147003) {
+      const skinConfig = getSkinConfig(baseSkinId);
+      if (skinConfig && isSupportedSkin(baseSkinId)) {
+        log.debug(
+          `[getChromaData] KDA Seraphine detected (base skin: 147001) - using local Forms data`
+        );
+        const forms = getSeraphineForms();
+        const baseFormId = 147001; // Always use base skin ID
+        const seraphineChampionId = 147; // Seraphine champion ID
+
+        // Base skin (KDA Seraphine base)
+        const baseSkinChroma = {
+          id: baseFormId,
+          name: "Default",
+          imagePath: getLocalPreviewPath(
+            seraphineChampionId,
+            baseFormId,
+            baseFormId,
+            true
+          ),
+          colors: [],
+          primaryColor: null,
+          selected: false,
+          locked: false,
+          buttonIconPath: `local-asset://${skinConfig.buttonFolder}/1.png`, // Use index-based path
+        };
+
+        // Forms (IDs 147002, 147003) - use index-based button paths
+        const formList = forms.map((form, index) => {
+          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${
+            index + 2
+          }.png`; // 2.png, 3.png
+          return {
+            id: form.id,
+            name: form.name,
+            imagePath: getLocalPreviewPath(
+              seraphineChampionId,
               baseFormId,
               form.id,
               false
