@@ -2220,12 +2220,8 @@
     const isSupported = currentSkinId && (isSupportedSkin(currentSkinId) || getSkinConfig(currentSkinId) !== null);
     const hasChromas = isSupported; // For FormsWheel, supported skins show buttons
     
-    // Debug logging
-    log.info(`[FormsWheel] ensureFakeButton: currentSkinId=${currentSkinId}, isCurrent=${isCurrent}, isSupported=${isSupported}, championLocked=${championLocked}`);
-    
     // Only show button for supported skins
     if (isCurrent && !isSupported) {
-      log.info(`[FormsWheel] Removing button - skin ${currentSkinId} is not supported`);
       const existingButton = skinItem.querySelector(BUTTON_SELECTOR);
       if (existingButton) {
         existingButton.remove();
@@ -2270,7 +2266,6 @@
         }
         skinItem.appendChild(fakeButton);
         existingButton = fakeButton;
-        log.info(`[FormsWheel] Created button for skin ${currentSkinId}, isSupported: ${isSupported}`);
         emitBridgeLog("button_created", {
           skinId: currentSkinId,
           hasChromas,
