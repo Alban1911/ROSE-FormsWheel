@@ -36,6 +36,16 @@
         championId: 25,
       },
     ],
+    [
+      875066,
+      {
+        // Radiant Sett - has Forms, not chromas
+        buttonFolder: "radiantsett_buttons",
+        formIds: [875066, 875998, 875999], // Base + 2 forms
+        formNames: ["Default", "Form 2", "Form 3"],
+        championId: 875,
+      },
+    ],
   ]);
 
   function isSupportedSkin(skinId) {
@@ -859,6 +869,14 @@
       return null;
     };
 
+    // Helper to get buttonIconPath for Radiant Sett forms
+    const getButtonIconPathForSett = (chromaId) => {
+      if (isSett(chromaId)) {
+        return getSettButtonIconPath(chromaId);
+      }
+      return null;
+    };
+
     // Helper to get buttonIconPath for HOL chromas
     const getButtonIconPathForHol = (chromaId) => {
       if (isHolChroma(chromaId)) {
@@ -888,6 +906,9 @@
       // Python provided the color directly
       const buttonIconPath =
         getButtonIconPathForElementalist(data.selectedChromaId) ||
+        getButtonIconPathForMordekaiser(data.selectedChromaId) ||
+        getButtonIconPathForMorgana(data.selectedChromaId) ||
+        getButtonIconPathForSett(data.selectedChromaId) ||
         getButtonIconPathForHol(data.selectedChromaId) ||
         (selectedChromaData && selectedChromaData.id === data.selectedChromaId
           ? selectedChromaData.buttonIconPath
@@ -1009,6 +1030,47 @@
         }
         log.debug(
           `[FormsWheel] Spirit Blossom Morgana form detected: ${data.selectedChromaId}, buttonIconPath: ${selectedChromaData.buttonIconPath}`
+        );
+      } else if (isSett(data.selectedChromaId)) {
+        // Radiant Sett form - get data from local functions
+        const baseFormId = 875066;
+        const settChampionId = 875;
+
+        // Check if it's the base form or a form
+        if (data.selectedChromaId === baseFormId) {
+          // Base form
+          selectedChromaData = {
+            id: data.selectedChromaId,
+            primaryColor: null,
+            colors: [],
+            name: "Default",
+            buttonIconPath: getSettButtonIconPath(baseFormId),
+          };
+        } else {
+          // Radiant Sett form (875998, 875999)
+          const forms = getSettForms();
+          const form = forms.find((f) => f.id === data.selectedChromaId);
+          if (form) {
+            selectedChromaData = {
+              id: data.selectedChromaId,
+              primaryColor: null,
+              colors: [],
+              name: form.name || "Selected",
+              buttonIconPath: getSettButtonIconPath(form.id),
+            };
+          } else {
+            // Form not found - use button icon path anyway
+            selectedChromaData = {
+              id: data.selectedChromaId,
+              primaryColor: null,
+              colors: [],
+              name: "Selected",
+              buttonIconPath: getSettButtonIconPath(data.selectedChromaId),
+            };
+          }
+        }
+        log.debug(
+          `[FormsWheel] Radiant Sett form detected: ${data.selectedChromaId}, buttonIconPath: ${selectedChromaData.buttonIconPath}`
         );
       } else if (isHolChroma(data.selectedChromaId)) {
         // HOL chroma - get data from local functions
@@ -1164,6 +1226,8 @@
         // Note: Mordekaiser handling removed - now handled by ROSE-FormsWheel plugin
       } else if (isMorgana(data.currentSkinId)) {
         buttonIconPath = getMorganaButtonIconPath(data.currentSkinId);
+      } else if (isSett(data.currentSkinId)) {
+        buttonIconPath = getSettButtonIconPath(data.currentSkinId);
       } else if (isHolChroma(data.currentSkinId)) {
         // Determine base skin ID and champion ID for HOL
         let baseSkinId;
@@ -1497,6 +1561,28 @@
     return forms;
   }
 
+  // Get Radiant Sett Forms data locally (same as Python's get_sett_forms)
+  function getSettForms() {
+    const forms = [
+      {
+        id: 875998,
+        name: "Form 2",
+        colors: [],
+        form_path: "Sett/Forms/Radiant Sett Form 2.zip",
+      },
+      {
+        id: 875999,
+        name: "Form 3",
+        colors: [],
+        form_path: "Sett/Forms/Radiant Sett Form 3.zip",
+      },
+    ];
+    log.debug(
+      `[getSettForms] Created ${forms.length} Radiant Sett Forms with real IDs (875998, 875999)`
+    );
+    return forms;
+  }
+
   // Get local preview image path for special skins (like Python's ChromaPreviewManager)
   // Path structure: {champion_id}/{skin_id}/{chroma_id}/{chroma_id}.png
   // For base skin: {champion_id}/{skin_id}/{skin_id}.png
@@ -1554,6 +1640,28 @@
     return path;
   }
 
+  // Get local button icon path for Radiant Sett forms
+  // Path: assets/radiantsett_buttons/{button_number}.png
+  // Maps: 875066 (base) -> 1.png, 875998 (form 2) -> 2.png, 875999 (form 3) -> 3.png
+  function getSettButtonIconPath(formId) {
+    // Request icon path from Python via bridge
+    // Python will return the local file path or serve it via HTTP
+    // Map form IDs to button numbers
+    let buttonNumber;
+    if (formId === 875066) {
+      buttonNumber = 1; // Base skin
+    } else if (formId === 875998) {
+      buttonNumber = 2; // Form 2
+    } else if (formId === 875999) {
+      buttonNumber = 3; // Form 3
+    } else {
+      // Fallback to form ID if unknown
+      buttonNumber = formId;
+    }
+    const path = `local-asset://radiantsett_buttons/${buttonNumber}.png`;
+    return path;
+  }
+
   // Get button icon path for HOL chromas (Kai'Sa and Ahri)
   function getHolButtonIconPath(championId, chromaId, baseSkinId) {
     // Determine which button icon to use based on chroma ID
@@ -1591,6 +1699,13 @@
 
   function isMorgana(skinId) {
     return Number.isFinite(skinId) && (skinId === 25080 || skinId === 25999);
+  }
+
+  function isSett(skinId) {
+    return (
+      Number.isFinite(skinId) &&
+      (skinId === 875066 || skinId === 875998 || skinId === 875999)
+    );
   }
 
   function isSpecialChromaSkin(skinId) {
@@ -2742,6 +2857,63 @@
             name: form.name,
             imagePath: getLocalPreviewPath(
               morganaChampionId,
+              baseFormId,
+              form.id,
+              false
+            ),
+            colors: form.colors || [],
+            primaryColor: null, // Forms don't have colors
+            selected: false,
+            locked: false, // Forms are clickable
+            buttonIconPath: buttonIconPath,
+            form_path: form.form_path,
+          };
+        });
+
+        const allChromas = [baseSkinChroma, ...formList];
+        return markSelectedChroma(allChromas, currentSkinId);
+      }
+    }
+
+    // SPECIAL CASE: Radiant Sett (skin ID 875066) - use local Forms data
+    // FormsWheel: Handle Sett forms using SUPPORTED_SKINS configuration
+    if (baseSkinId === 875066 || baseSkinId === 875998 || baseSkinId === 875999) {
+      const skinConfig = getSkinConfig(baseSkinId);
+      if (skinConfig && isSupportedSkin(baseSkinId)) {
+        log.debug(
+          `[getChromaData] Radiant Sett detected (base skin: 875066) - using local Forms data`
+        );
+        const forms = getSettForms();
+        const baseFormId = 875066; // Always use base skin ID
+        const settChampionId = 875; // Sett champion ID
+
+        // Base skin (Radiant Sett base)
+        const baseSkinChroma = {
+          id: baseFormId,
+          name: "Default",
+          imagePath: getLocalPreviewPath(
+            settChampionId,
+            baseFormId,
+            baseFormId,
+            true
+          ),
+          colors: [],
+          primaryColor: null,
+          selected: false,
+          locked: false,
+          buttonIconPath: `local-asset://${skinConfig.buttonFolder}/1.png`, // Use index-based path
+        };
+
+        // Forms (IDs 875998, 875999) - use index-based button paths
+        const formList = forms.map((form, index) => {
+          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${
+            index + 2
+          }.png`; // 2.png, 3.png
+          return {
+            id: form.id,
+            name: form.name,
+            imagePath: getLocalPreviewPath(
+              settChampionId,
               baseFormId,
               form.id,
               false
