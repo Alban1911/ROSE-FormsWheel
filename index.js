@@ -313,17 +313,38 @@
       display: none !important;
     }
 
+    /* Ensure thumbnail-wrapper has relative positioning for absolute button */
+    .thumbnail-wrapper.active-skin {
+      position: relative;
+    }
+
     .thumbnail-wrapper .${BUTTON_CLASS} {
       direction: ltr;
-      background: url(/fe/lol-static-assets/images/skin-viewer/icon-chroma-default.png) 0 0 no-repeat;
-      background-size: contain;
+      background: transparent;
       cursor: pointer;
       height: 28px;
       width: 28px;
+      /* Keep the same positioning as base button for consistency */
+      bottom: 1px;
+      left: 50%;
+      position: absolute;
+      transform: translateX(-50%) translateY(50%);
+      z-index: 10;
     }
 
+    /* Show outer-mask and content in Swiftplay so they are visible */
     .thumbnail-wrapper .${BUTTON_CLASS} .outer-mask {
-      display: none;
+      display: block !important;
+    }
+
+    .thumbnail-wrapper .${BUTTON_CLASS} .frame-color,
+    .thumbnail-wrapper .${BUTTON_CLASS} .content {
+      display: block !important;
+    }
+
+    /* Adjust content positioning in Swiftplay buttons */
+    .thumbnail-wrapper .${BUTTON_CLASS} .content {
+      transform: translate(1px, 1px);
     }
 
     .chroma.icon {
@@ -2188,14 +2209,19 @@
       if (skinItem) {
         // Check if this skin has offset 2
         const offset = getSkinOffset(skinItem);
-        log.info(`[FormsWheel] Skin offset: ${offset}`);
+        const isSwiftplayActive =
+          skinItem.classList.contains("thumbnail-wrapper") &&
+          skinItem.classList.contains("active-skin");
+        log.info(`[FormsWheel] Skin offset: ${offset}, isSwiftplayActive: ${isSwiftplayActive}`);
 
-        if (offset === 2) {
-          log.info("[FormsWheel] Found skin item with offset 2, opening panel");
+        if (offset === 2 || isSwiftplayActive) {
+          log.info(
+            `[FormsWheel] Found valid skin item (offset=${offset}, swiftplay=${isSwiftplayActive}), opening panel`
+          );
           toggleChromaPanel(button, skinItem);
         } else {
           log.info(
-            `[FormsWheel] Skin offset is ${offset}, not 2. Panel will not open.`
+            `[FormsWheel] Skin offset is ${offset}, not 2, and not Swiftplay active. Panel will not open.`
           );
         }
       } else {
@@ -2426,6 +2452,10 @@
 
     // Thumbnail wrappers (e.g., Swiftplay lobby) typically flag selection via attributes/classes
     if (skinItem.classList.contains("thumbnail-wrapper")) {
+      // Check for active-skin class (Swiftplay mode)
+      if (skinItem.classList.contains("active-skin")) {
+        return true;
+      }
       if (
         skinItem.classList.contains("selected") ||
         skinItem.getAttribute("aria-selected") === "true"
@@ -2479,8 +2509,13 @@
       return;
     }
 
-    // Don't create button if champion is not locked
-    if (!championLocked) {
+    // Check if this is Swiftplay mode
+    const isSwiftplayActive =
+      skinItem.classList.contains("thumbnail-wrapper") &&
+      skinItem.classList.contains("active-skin");
+
+    // Don't create button if champion is not locked (except in Swiftplay)
+    if (!championLocked && !isSwiftplayActive) {
       // Remove existing button if champion is not locked
       const existingButton = skinItem.querySelector(BUTTON_SELECTOR);
       if (existingButton) {
@@ -2544,12 +2579,27 @@
     try {
       if (!existingButton) {
         const fakeButton = createFakeButton();
-        // Ensure parent has relative positioning
-        if (window.getComputedStyle(skinItem).position === "static") {
-          skinItem.style.position = "relative";
+        
+        // For Swiftplay mode (thumbnail-wrapper with active-skin), place button directly on thumbnail-wrapper
+        if (
+          skinItem.classList.contains("thumbnail-wrapper") &&
+          skinItem.classList.contains("active-skin")
+        ) {
+          // Always place directly on thumbnail-wrapper for Swiftplay
+          skinItem.appendChild(fakeButton);
+          existingButton = fakeButton;
+          log.debug(
+            `[FormsWheel] Placed button on Swiftplay thumbnail-wrapper for skin ${currentSkinId}`
+          );
+        } else {
+          // Normal champ select: ensure parent has relative positioning
+          if (window.getComputedStyle(skinItem).position === "static") {
+            skinItem.style.position = "relative";
+          }
+          skinItem.appendChild(fakeButton);
+          existingButton = fakeButton;
         }
-        skinItem.appendChild(fakeButton);
-        existingButton = fakeButton;
+        
         emitBridgeLog("button_created", {
           skinId: currentSkinId,
           hasChromas,
@@ -2560,7 +2610,7 @@
 
       updateButtonVisibility(existingButton, hasChromas);
     } catch (e) {
-      log.warn("Failed to create chroma button", e);
+      log.warn("Failed to create forms button", e);
       emitBridgeLog("button_creation_error", { error: String(e) });
     }
   }
