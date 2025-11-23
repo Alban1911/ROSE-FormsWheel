@@ -22,6 +22,12 @@
       formNames: ["Default", "Form 1", "Form 2"],
       championId: 82,
     }],
+    [25080, { // Spirit Blossom Morgana - has Forms, not chromas
+      buttonFolder: "sbmorg_buttons",
+      formIds: [25080, 25999], // Base + 1 form
+      formNames: ["Default", "Form 1"],
+      championId: 25,
+    }],
   ]);
   
   function isSupportedSkin(skinId) {
@@ -1488,12 +1494,22 @@
   }
 
   // Get local button icon path for Spirit Blossom Morgana forms
-  // Path: assets/morgana_buttons/{form_id}.png
+  // Path: assets/sbmorg_buttons/{button_number}.png
+  // Maps: 25080 (base) -> 1.png, 25999 (form) -> 2.png
   function getMorganaButtonIconPath(formId) {
     // Request icon path from Python via bridge
     // Python will return the local file path or serve it via HTTP
-    // For now, construct the expected path structure
-    const path = `local-asset://morgana_buttons/${formId}.png`;
+    // Map form IDs to button numbers
+    let buttonNumber;
+    if (formId === 25080) {
+      buttonNumber = 1; // Base skin
+    } else if (formId === 25999) {
+      buttonNumber = 2; // Form 1
+    } else {
+      // Fallback to form ID if unknown
+      buttonNumber = formId;
+    }
+    const path = `local-asset://sbmorg_buttons/${buttonNumber}.png`;
     return path;
   }
 
@@ -2216,8 +2232,13 @@
     const currentSkinId = skinMonitorState?.skinId ?? null;
     
     // FormsWheel: Check if this is a supported skin (has Forms, not chromas)
-    // Also check if currentSkinId maps to a supported skin (e.g., base 82000 -> Sahn Uzal 82054)
-    const isSupported = currentSkinId && (isSupportedSkin(currentSkinId) || getSkinConfig(currentSkinId) !== null);
+    // Check both currentSkinId from state and skinId from the skinItem itself
+    const skinData = getCachedSkinData(skinItem);
+    const itemSkinId = getSkinIdFromContext(skinData, skinItem);
+    const skinIdToCheck = currentSkinId || itemSkinId;
+    
+    // Check if this skin (current or item) is supported
+    const isSupported = skinIdToCheck && (isSupportedSkin(skinIdToCheck) || getSkinConfig(skinIdToCheck) !== null);
     const hasChromas = isSupported; // For FormsWheel, supported skins show buttons
     
     // Only show button for supported skins
@@ -2646,13 +2667,16 @@
     }
 
     // SPECIAL CASE: Spirit Blossom Morgana (skin ID 25080) - use local Forms data
+    // FormsWheel: Handle Morgana forms using SUPPORTED_SKINS configuration
     if (baseSkinId === 25080 || baseSkinId === 25999) {
+      const skinConfig = getSkinConfig(baseSkinId);
+      if (skinConfig && isSupportedSkin(baseSkinId)) {
       log.debug(
         `[getChromaData] Spirit Blossom Morgana detected (base skin: 25080) - using local Forms data`
       );
       const forms = getMorganaForms();
-      const baseFormId = 25080; // Always use base skin ID for Spirit Blossom Morgana
-      const morganaChampionId = 25; // Morgana champion ID
+        const baseFormId = 25080; // Always use base skin ID
+        const morganaChampionId = skinConfig.championId; // Use championId from config
 
       // Base skin (Spirit Blossom Morgana base)
       const baseSkinChroma = {
@@ -2668,11 +2692,13 @@
         primaryColor: null,
         selected: false,
         locked: false,
-        buttonIconPath: getMorganaButtonIconPath(baseFormId),
+          buttonIconPath: `local-asset://${skinConfig.buttonFolder}/1.png`, // Use index-based path
       };
 
-      // Forms (ID 25999)
-      const formList = forms.map((form) => ({
+        // Forms (ID 25999) - use index-based button paths
+        const formList = forms.map((form, index) => {
+          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${index + 2}.png`; // 2.png
+          return {
         id: form.id,
         name: form.name,
         imagePath: getLocalPreviewPath(
@@ -2684,13 +2710,15 @@
         colors: form.colors || [],
         primaryColor: null, // Forms don't have colors
         selected: false,
-        locked: false, // Forms are clickable (locking is just visual in the official client)
-        buttonIconPath: getMorganaButtonIconPath(form.id),
+            locked: false, // Forms are clickable
+            buttonIconPath: buttonIconPath,
         form_path: form.form_path,
-      }));
+          };
+        });
 
       const allChromas = [baseSkinChroma, ...formList];
       return markSelectedChroma(allChromas, currentSkinId);
+      }
     }
 
     // SPECIAL CASE: Risen Legend Kai'Sa (skin ID 145070) or Immortalized Legend (145071)
