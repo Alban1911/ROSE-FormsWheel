@@ -69,12 +69,13 @@
       SPECIAL_BASE_SKIN_IDS.has(skinId) ||
       SPECIAL_CHROMA_SKIN_IDS.has(skinId)
     ) {
-      // Check if it's a HoL skin (145070, 145071, 103085, 103086)
+      // Check if it's a HoL skin (145070, 145071, 103085, 103086, 103087)
       if (
         skinId === 145070 ||
         skinId === 145071 ||
         skinId === 103085 ||
-        skinId === 103086
+        skinId === 103086 ||
+        skinId === 103087
       ) {
         return true;
       }
@@ -101,7 +102,7 @@
   }
 
   const SPECIAL_BASE_SKIN_IDS = new Set([99007, 25080, 145070, 103085]);
-  const SPECIAL_CHROMA_SKIN_IDS = new Set([145071, 100001, 103086, 88888]);
+  const SPECIAL_CHROMA_SKIN_IDS = new Set([145071, 100001, 103086, 103087, 88888]);
   const chromaParentMap = new Map();
   let skinMonitorState = null;
   const championSkinCache = new Map(); // championId -> Map(skinId -> skin data)
@@ -873,7 +874,7 @@
 
     // Check if this is a HOL chroma (Kai'Sa or Ahri)
     const isHolChroma = (id) => {
-      return id === 145070 || id === 145071 || id === 103085 || id === 103086;
+      return id === 145070 || id === 145071 || id === 103085 || id === 103086 || id === 103087;
     };
 
     // Helper to get buttonIconPath for Elementalist Lux forms
@@ -927,7 +928,7 @@
           // Kai'Sa HOL
           baseSkinId = 145070;
           championId = 145;
-        } else if (chromaId === 103085 || chromaId === 103086) {
+        } else if (chromaId === 103085 || chromaId === 103086 || chromaId === 103087) {
           // Ahri HOL
           baseSkinId = 103085;
           championId = 103;
@@ -1167,7 +1168,8 @@
           championId = 145;
         } else if (
           data.selectedChromaId === 103085 ||
-          data.selectedChromaId === 103086
+          data.selectedChromaId === 103086 ||
+          data.selectedChromaId === 103087
         ) {
           // Ahri HOL
           baseSkinId = 103085;
@@ -1321,7 +1323,8 @@
           championId = 145;
         } else if (
           data.currentSkinId === 103085 ||
-          data.currentSkinId === 103086
+          data.currentSkinId === 103086 ||
+          data.currentSkinId === 103087
         ) {
           baseSkinId = 103085;
           championId = 103;
@@ -1599,9 +1602,10 @@
   function getAhriHolChromas() {
     const chromas = [
       { id: 103086, skinId: 103085, name: "Immortalized Legend", colors: [] },
+      { id: 103087, skinId: 103085, name: "Form 2", colors: [] },
     ];
     log.debug(
-      `[getAhriHolChromas] Created ${chromas.length} Risen Legend Ahri HOL chromas with real skin ID (103086)`
+      `[getAhriHolChromas] Created ${chromas.length} Risen Legend Ahri HOL chromas with real skin IDs (103086, 103087)`
     );
     return chromas;
   }
@@ -1791,9 +1795,29 @@
 
   // Get button icon path for HOL chromas (Kai'Sa and Ahri)
   function getHolButtonIconPath(championId, chromaId, baseSkinId) {
+    // Ahri forms (103085, 103086, 103087) use fakerahri_buttons folder with numbered images
+    if (championId === 103 || baseSkinId === 103085) {
+      // Map form IDs to button numbers
+      // 103085 (base) -> 1.png, 103086 (form 1) -> 2.png, 103087 (form 2) -> 3.png
+      let buttonNumber;
+      if (chromaId === 103085) {
+        buttonNumber = 1; // Base skin
+      } else if (chromaId === 103086) {
+        buttonNumber = 2; // Form 1
+      } else if (chromaId === 103087) {
+        buttonNumber = 3; // Form 2
+      } else {
+        // Fallback to form ID if unknown
+        buttonNumber = chromaId;
+      }
+      const path = `local-asset://fakerahri_buttons/${buttonNumber}.png`;
+      return path;
+    }
+    
+    // Kai'Sa HOL chromas use risen.png and immortal.png
     // Determine which button icon to use based on chroma ID
-    // Base skins (145070, 103085) use "risen.png"
-    // HOL chromas (145071, 103086) use "immortal.png"
+    // Base skins (145070) use "risen.png"
+    // HOL chromas (145071) use "immortal.png"
     let imageName;
 
     if (chromaId === baseSkinId) {
@@ -3207,8 +3231,8 @@
       return markSelectedChroma(allChromas, currentSkinId);
     }
 
-    // SPECIAL CASE: Risen Legend Ahri (skin ID 103085) or Immortalized Legend (103086)
-    if (baseSkinId === 103085 || baseSkinId === 103086) {
+    // SPECIAL CASE: Risen Legend Ahri (skin ID 103085) or Immortalized Legend (103086) or Form 2 (103087)
+    if (baseSkinId === 103085 || baseSkinId === 103086 || baseSkinId === 103087) {
       log.debug(
         `[getChromaData] Risen Legend Ahri detected (base skin: 103085) - using local HOL chroma data`
       );
@@ -4200,7 +4224,8 @@
         (selectedChromaData.id === 145070 ||
           selectedChromaData.id === 145071 ||
           selectedChromaData.id === 103085 ||
-          selectedChromaData.id === 103086);
+          selectedChromaData.id === 103086 ||
+          selectedChromaData.id === 103087);
       const isDefault =
         !selectedChromaData ||
         (selectedChromaData.name === "Default" &&
