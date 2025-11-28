@@ -66,6 +66,16 @@
         championId: 37,
       },
     ],
+    [
+      222060,
+      {
+        // Arcane Fractured Jinx - has Forms, not chromas
+        buttonFolder: "arcanejinx_buttons",
+        formIds: [222060, 222998, 222999], // Base + 2 forms
+        formNames: ["Default", "Form 1", "Form 2"],
+        championId: 222,
+      },
+    ],
   ]);
 
   function isSupportedSkin(skinId) {
@@ -935,6 +945,14 @@
       return null;
     };
 
+    // Helper to get buttonIconPath for Arcane Fractured Jinx forms
+    const getButtonIconPathForJinx = (chromaId) => {
+      if (isJinx(chromaId)) {
+        return getJinxButtonIconPath(chromaId);
+      }
+      return null;
+    };
+
     // Helper to get buttonIconPath for HOL chromas
     const getButtonIconPathForHol = (chromaId) => {
       if (isHolChroma(chromaId)) {
@@ -969,6 +987,7 @@
         getButtonIconPathForSett(data.selectedChromaId) ||
         getButtonIconPathForSeraphine(data.selectedChromaId) ||
         getButtonIconPathForSona(data.selectedChromaId) ||
+        getButtonIconPathForJinx(data.selectedChromaId) ||
         getButtonIconPathForHol(data.selectedChromaId) ||
         (selectedChromaData && selectedChromaData.id === data.selectedChromaId
           ? selectedChromaData.buttonIconPath
@@ -1214,6 +1233,47 @@
         log.debug(
           `[FormsWheel] DJ Sona form detected: ${data.selectedChromaId}, buttonIconPath: ${selectedChromaData.buttonIconPath}`
         );
+      } else if (isJinx(data.selectedChromaId)) {
+        // Arcane Fractured Jinx form - get data from local functions
+        const baseFormId = 222060;
+        const jinxChampionId = 222;
+
+        // Check if it's the base form or a form
+        if (data.selectedChromaId === baseFormId) {
+          // Base form
+          selectedChromaData = {
+            id: data.selectedChromaId,
+            primaryColor: null,
+            colors: [],
+            name: "Default",
+            buttonIconPath: getJinxButtonIconPath(baseFormId),
+          };
+        } else {
+          // Arcane Fractured Jinx form (222998, 222999)
+          const forms = getJinxForms();
+          const form = forms.find((f) => f.id === data.selectedChromaId);
+          if (form) {
+            selectedChromaData = {
+              id: data.selectedChromaId,
+              primaryColor: null,
+              colors: [],
+              name: form.name || "Selected",
+              buttonIconPath: getJinxButtonIconPath(form.id),
+            };
+          } else {
+            // Form not found - use button icon path anyway
+            selectedChromaData = {
+              id: data.selectedChromaId,
+              primaryColor: null,
+              colors: [],
+              name: "Selected",
+              buttonIconPath: getJinxButtonIconPath(data.selectedChromaId),
+            };
+          }
+        }
+        log.debug(
+          `[FormsWheel] Arcane Fractured Jinx form detected: ${data.selectedChromaId}, buttonIconPath: ${selectedChromaData.buttonIconPath}`
+        );
       } else if (isHolChroma(data.selectedChromaId)) {
         // HOL chroma - get data from local functions
         let baseSkinId;
@@ -1375,6 +1435,8 @@
         buttonIconPath = getSeraphineButtonIconPath(data.currentSkinId);
       } else if (isSona(data.currentSkinId)) {
         buttonIconPath = getSonaButtonIconPath(data.currentSkinId);
+      } else if (isJinx(data.currentSkinId)) {
+        buttonIconPath = getJinxButtonIconPath(data.currentSkinId);
       } else if (isHolChroma(data.currentSkinId)) {
         // Determine base skin ID and champion ID for HOL
         let baseSkinId;
@@ -1776,6 +1838,28 @@
     return forms;
   }
 
+  // Get Arcane Fractured Jinx Forms data locally
+  function getJinxForms() {
+    const forms = [
+      {
+        id: 222998,
+        name: "Form 1",
+        colors: [],
+        form_path: "Jinx/Forms/Arcane Fractured Jinx Form 1.zip",
+      },
+      {
+        id: 222999,
+        name: "Form 2",
+        colors: [],
+        form_path: "Jinx/Forms/Arcane Fractured Jinx Form 2.zip",
+      },
+    ];
+    log.debug(
+      `[getJinxForms] Created ${forms.length} Arcane Fractured Jinx Forms with real IDs (222998, 222999)`
+    );
+    return forms;
+  }
+
   // Get local preview image path for special skins (like Python's ChromaPreviewManager)
   // Path structure: {champion_id}/{skin_id}/{chroma_id}/{chroma_id}.png
   // For base skin: {champion_id}/{skin_id}/{skin_id}.png
@@ -1899,6 +1983,28 @@
     return path;
   }
 
+  // Get local button icon path for Arcane Fractured Jinx forms
+  // Path: assets/arcanejinx_buttons/{button_number}.png
+  // Maps: 222060 (base) -> 1.png, 222998 (form 1) -> 2.png, 222999 (form 2) -> 3.png
+  function getJinxButtonIconPath(formId) {
+    // Request icon path from Python via bridge
+    // Python will return the local file path or serve it via HTTP
+    // Map form IDs to button numbers
+    let buttonNumber;
+    if (formId === 222060) {
+      buttonNumber = 1; // Base skin
+    } else if (formId === 222998) {
+      buttonNumber = 2; // Form 1
+    } else if (formId === 222999) {
+      buttonNumber = 3; // Form 2
+    } else {
+      // Fallback to form ID if unknown
+      buttonNumber = formId;
+    }
+    const path = `local-asset://arcanejinx_buttons/${buttonNumber}.png`;
+    return path;
+  }
+
   // Get button icon path for HOL chromas (Kai'Sa and Ahri)
   function getHolButtonIconPath(championId, chromaId, baseSkinId) {
     // Ahri forms (103085, 103086, 103087) use fakerahri_buttons folder with numbered images
@@ -1976,6 +2082,13 @@
     return (
       Number.isFinite(skinId) &&
       (skinId === 37006 || skinId === 37998 || skinId === 37999)
+    );
+  }
+
+  function isJinx(skinId) {
+    return (
+      Number.isFinite(skinId) &&
+      (skinId === 222060 || skinId === 222998 || skinId === 222999)
     );
   }
 
@@ -3328,6 +3441,63 @@
             name: form.name,
             imagePath: getLocalPreviewPath(
               sonaChampionId,
+              baseFormId,
+              form.id,
+              false
+            ),
+            colors: form.colors || [],
+            primaryColor: null, // Forms don't have colors
+            selected: false,
+            locked: false, // Forms are clickable
+            buttonIconPath: buttonIconPath,
+            form_path: form.form_path,
+          };
+        });
+
+        const allChromas = [baseSkinChroma, ...formList];
+        return markSelectedChroma(allChromas, currentSkinId);
+      }
+    }
+
+    // SPECIAL CASE: Arcane Fractured Jinx (skin ID 222060) - use local Forms data
+    // FormsWheel: Handle Jinx forms using SUPPORTED_SKINS configuration
+    if (baseSkinId === 222060 || baseSkinId === 222998 || baseSkinId === 222999) {
+      const skinConfig = getSkinConfig(baseSkinId);
+      if (skinConfig && isSupportedSkin(baseSkinId)) {
+        log.debug(
+          `[getChromaData] Arcane Fractured Jinx detected (base skin: 222060) - using local Forms data`
+        );
+        const forms = getJinxForms();
+        const baseFormId = 222060; // Always use base skin ID
+        const jinxChampionId = 222; // Jinx champion ID
+
+        // Base skin (Arcane Fractured Jinx base)
+        const baseSkinChroma = {
+          id: baseFormId,
+          name: "Default",
+          imagePath: getLocalPreviewPath(
+            jinxChampionId,
+            baseFormId,
+            baseFormId,
+            true
+          ),
+          colors: [],
+          primaryColor: null,
+          selected: false,
+          locked: false,
+          buttonIconPath: `local-asset://${skinConfig.buttonFolder}/1.png`, // Use index-based path
+        };
+
+        // Forms (IDs 222998, 222999) - use index-based button paths
+        const formList = forms.map((form, index) => {
+          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${
+            index + 2
+          }.png`; // 2.png, 3.png
+          return {
+            id: form.id,
+            name: form.name,
+            imagePath: getLocalPreviewPath(
+              jinxChampionId,
               baseFormId,
               form.id,
               false
