@@ -56,6 +56,16 @@
         championId: 147,
       },
     ],
+    [
+      37006,
+      {
+        // DJ Sona - has Forms, not chromas
+        buttonFolder: "djsona_buttons",
+        formIds: [37006, 37998, 37999], // Base + 2 forms
+        formNames: ["Default", "Form 1", "Form 2"],
+        championId: 37,
+      },
+    ],
   ]);
 
   function isSupportedSkin(skinId) {
@@ -917,6 +927,14 @@
       return null;
     };
 
+    // Helper to get buttonIconPath for DJ Sona forms
+    const getButtonIconPathForSona = (chromaId) => {
+      if (isSona(chromaId)) {
+        return getSonaButtonIconPath(chromaId);
+      }
+      return null;
+    };
+
     // Helper to get buttonIconPath for HOL chromas
     const getButtonIconPathForHol = (chromaId) => {
       if (isHolChroma(chromaId)) {
@@ -950,6 +968,7 @@
         getButtonIconPathForMorgana(data.selectedChromaId) ||
         getButtonIconPathForSett(data.selectedChromaId) ||
         getButtonIconPathForSeraphine(data.selectedChromaId) ||
+        getButtonIconPathForSona(data.selectedChromaId) ||
         getButtonIconPathForHol(data.selectedChromaId) ||
         (selectedChromaData && selectedChromaData.id === data.selectedChromaId
           ? selectedChromaData.buttonIconPath
@@ -1154,6 +1173,47 @@
         log.debug(
           `[FormsWheel] KDA Seraphine form detected: ${data.selectedChromaId}, buttonIconPath: ${selectedChromaData.buttonIconPath}`
         );
+      } else if (isSona(data.selectedChromaId)) {
+        // DJ Sona form - get data from local functions
+        const baseFormId = 37006;
+        const sonaChampionId = 37;
+
+        // Check if it's the base form or a form
+        if (data.selectedChromaId === baseFormId) {
+          // Base form
+          selectedChromaData = {
+            id: data.selectedChromaId,
+            primaryColor: null,
+            colors: [],
+            name: "Default",
+            buttonIconPath: getSonaButtonIconPath(baseFormId),
+          };
+        } else {
+          // DJ Sona form (37998, 37999)
+          const forms = getSonaForms();
+          const form = forms.find((f) => f.id === data.selectedChromaId);
+          if (form) {
+            selectedChromaData = {
+              id: data.selectedChromaId,
+              primaryColor: null,
+              colors: [],
+              name: form.name || "Selected",
+              buttonIconPath: getSonaButtonIconPath(form.id),
+            };
+          } else {
+            // Form not found - use button icon path anyway
+            selectedChromaData = {
+              id: data.selectedChromaId,
+              primaryColor: null,
+              colors: [],
+              name: "Selected",
+              buttonIconPath: getSonaButtonIconPath(data.selectedChromaId),
+            };
+          }
+        }
+        log.debug(
+          `[FormsWheel] DJ Sona form detected: ${data.selectedChromaId}, buttonIconPath: ${selectedChromaData.buttonIconPath}`
+        );
       } else if (isHolChroma(data.selectedChromaId)) {
         // HOL chroma - get data from local functions
         let baseSkinId;
@@ -1313,6 +1373,8 @@
         buttonIconPath = getSettButtonIconPath(data.currentSkinId);
       } else if (isSeraphine(data.currentSkinId)) {
         buttonIconPath = getSeraphineButtonIconPath(data.currentSkinId);
+      } else if (isSona(data.currentSkinId)) {
+        buttonIconPath = getSonaButtonIconPath(data.currentSkinId);
       } else if (isHolChroma(data.currentSkinId)) {
         // Determine base skin ID and champion ID for HOL
         let baseSkinId;
@@ -1692,6 +1754,28 @@
     return forms;
   }
 
+  // Get DJ Sona Forms data locally
+  function getSonaForms() {
+    const forms = [
+      {
+        id: 37998,
+        name: "Form 1",
+        colors: [],
+        form_path: "Sona/Forms/DJ Sona Form 1.zip",
+      },
+      {
+        id: 37999,
+        name: "Form 2",
+        colors: [],
+        form_path: "Sona/Forms/DJ Sona Form 2.zip",
+      },
+    ];
+    log.debug(
+      `[getSonaForms] Created ${forms.length} DJ Sona Forms with real IDs (37998, 37999)`
+    );
+    return forms;
+  }
+
   // Get local preview image path for special skins (like Python's ChromaPreviewManager)
   // Path structure: {champion_id}/{skin_id}/{chroma_id}/{chroma_id}.png
   // For base skin: {champion_id}/{skin_id}/{skin_id}.png
@@ -1793,6 +1877,28 @@
     return path;
   }
 
+  // Get local button icon path for DJ Sona forms
+  // Path: assets/djsona_buttons/{button_number}.png
+  // Maps: 37006 (base) -> 1.png, 37998 (form 1) -> 2.png, 37999 (form 2) -> 3.png
+  function getSonaButtonIconPath(formId) {
+    // Request icon path from Python via bridge
+    // Python will return the local file path or serve it via HTTP
+    // Map form IDs to button numbers
+    let buttonNumber;
+    if (formId === 37006) {
+      buttonNumber = 1; // Base skin
+    } else if (formId === 37998) {
+      buttonNumber = 2; // Form 1
+    } else if (formId === 37999) {
+      buttonNumber = 3; // Form 2
+    } else {
+      // Fallback to form ID if unknown
+      buttonNumber = formId;
+    }
+    const path = `local-asset://djsona_buttons/${buttonNumber}.png`;
+    return path;
+  }
+
   // Get button icon path for HOL chromas (Kai'Sa and Ahri)
   function getHolButtonIconPath(championId, chromaId, baseSkinId) {
     // Ahri forms (103085, 103086, 103087) use fakerahri_buttons folder with numbered images
@@ -1863,6 +1969,13 @@
     return (
       Number.isFinite(skinId) &&
       (skinId === 147001 || skinId === 147002 || skinId === 147003)
+    );
+  }
+
+  function isSona(skinId) {
+    return (
+      Number.isFinite(skinId) &&
+      (skinId === 37006 || skinId === 37998 || skinId === 37999)
     );
   }
 
@@ -3158,6 +3271,63 @@
             name: form.name,
             imagePath: getLocalPreviewPath(
               seraphineChampionId,
+              baseFormId,
+              form.id,
+              false
+            ),
+            colors: form.colors || [],
+            primaryColor: null, // Forms don't have colors
+            selected: false,
+            locked: false, // Forms are clickable
+            buttonIconPath: buttonIconPath,
+            form_path: form.form_path,
+          };
+        });
+
+        const allChromas = [baseSkinChroma, ...formList];
+        return markSelectedChroma(allChromas, currentSkinId);
+      }
+    }
+
+    // SPECIAL CASE: DJ Sona (skin ID 37006) - use local Forms data
+    // FormsWheel: Handle Sona forms using SUPPORTED_SKINS configuration
+    if (baseSkinId === 37006 || baseSkinId === 37998 || baseSkinId === 37999) {
+      const skinConfig = getSkinConfig(baseSkinId);
+      if (skinConfig && isSupportedSkin(baseSkinId)) {
+        log.debug(
+          `[getChromaData] DJ Sona detected (base skin: 37006) - using local Forms data`
+        );
+        const forms = getSonaForms();
+        const baseFormId = 37006; // Always use base skin ID
+        const sonaChampionId = 37; // Sona champion ID
+
+        // Base skin (DJ Sona base)
+        const baseSkinChroma = {
+          id: baseFormId,
+          name: "Default",
+          imagePath: getLocalPreviewPath(
+            sonaChampionId,
+            baseFormId,
+            baseFormId,
+            true
+          ),
+          colors: [],
+          primaryColor: null,
+          selected: false,
+          locked: false,
+          buttonIconPath: `local-asset://${skinConfig.buttonFolder}/1.png`, // Use index-based path
+        };
+
+        // Forms (IDs 37998, 37999) - use index-based button paths
+        const formList = forms.map((form, index) => {
+          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${
+            index + 2
+          }.png`; // 2.png, 3.png
+          return {
+            id: form.id,
+            name: form.name,
+            imagePath: getLocalPreviewPath(
+              sonaChampionId,
               baseFormId,
               form.id,
               false
