@@ -76,6 +76,16 @@
         championId: 222,
       },
     ],
+    [
+      145070,
+      {
+        // Uzi Kaisa - has Forms, not chromas
+        buttonFolder: "uzikaisa_buttons",
+        formIds: [145070, 145071, 145999], // Base + 2 forms
+        formNames: ["Default", "Form 1", "Form 2"],
+        championId: 145,
+      },
+    ],
   ]);
 
   function isSupportedSkin(skinId) {
@@ -84,15 +94,14 @@
     for (const config of SUPPORTED_SKINS.values()) {
       if (config.formIds.includes(skinId)) return true;
     }
-    // Check for HoL skins (Kai'Sa and Ahri) - these are forms, not chromas
+    // Check for HoL skins (Ahri) - these are forms, not chromas
+    // Note: Kaisa (145070, 145071, 145999) is now handled via SUPPORTED_SKINS
     if (
       SPECIAL_BASE_SKIN_IDS.has(skinId) ||
       SPECIAL_CHROMA_SKIN_IDS.has(skinId)
     ) {
-      // Check if it's a HoL skin (145070, 145071, 103085, 103086, 103087)
+      // Check if it's a HoL skin (103085, 103086, 103087) - Ahri only
       if (
-        skinId === 145070 ||
-        skinId === 145071 ||
         skinId === 103085 ||
         skinId === 103086 ||
         skinId === 103087
@@ -121,8 +130,8 @@
     return null;
   }
 
-  const SPECIAL_BASE_SKIN_IDS = new Set([99007, 25080, 145070, 103085]);
-  const SPECIAL_CHROMA_SKIN_IDS = new Set([145071, 100001, 103086, 103087, 88888]);
+  const SPECIAL_BASE_SKIN_IDS = new Set([99007, 25080, 103085]);
+  const SPECIAL_CHROMA_SKIN_IDS = new Set([100001, 103086, 103087, 88888]);
   const chromaParentMap = new Map();
   let skinMonitorState = null;
   const championSkinCache = new Map(); // championId -> Map(skinId -> skin data)
@@ -894,7 +903,8 @@
 
     // Check if this is a HOL chroma (Kai'Sa or Ahri)
     const isHolChroma = (id) => {
-      return id === 145070 || id === 145071 || id === 103085 || id === 103086 || id === 103087;
+      // Kaisa (145070, 145071, 145999) now uses forms, so only check Ahri HOL IDs
+      return id === 103085 || id === 103086 || id === 103087;
     };
 
     // Helper to get buttonIconPath for Elementalist Lux forms
@@ -946,6 +956,7 @@
     };
 
     // Helper to get buttonIconPath for Arcane Fractured Jinx forms
+    // Helper to get buttonIconPath for Arcane Fractured Jinx forms
     const getButtonIconPathForJinx = (chromaId) => {
       if (isJinx(chromaId)) {
         return getJinxButtonIconPath(chromaId);
@@ -953,18 +964,22 @@
       return null;
     };
 
-    // Helper to get buttonIconPath for HOL chromas
+    // Helper to get buttonIconPath for Uzi Kaisa forms
+    const getButtonIconPathForKaisa = (chromaId) => {
+      if (isKaisa(chromaId)) {
+        return getKaisaButtonIconPath(chromaId);
+      }
+      return null;
+    };
+
+    // Helper to get buttonIconPath for HOL chromas (Ahri only - Kaisa now uses forms)
     const getButtonIconPathForHol = (chromaId) => {
       if (isHolChroma(chromaId)) {
-        // Determine base skin ID and champion ID
+        // Determine base skin ID and champion ID (Ahri only)
         let baseSkinId;
         let championId;
 
-        if (chromaId === 145070 || chromaId === 145071) {
-          // Kai'Sa HOL
-          baseSkinId = 145070;
-          championId = 145;
-        } else if (chromaId === 103085 || chromaId === 103086 || chromaId === 103087) {
+        if (chromaId === 103085 || chromaId === 103086 || chromaId === 103087) {
           // Ahri HOL
           baseSkinId = 103085;
           championId = 103;
@@ -988,6 +1003,7 @@
         getButtonIconPathForSeraphine(data.selectedChromaId) ||
         getButtonIconPathForSona(data.selectedChromaId) ||
         getButtonIconPathForJinx(data.selectedChromaId) ||
+        getButtonIconPathForKaisa(data.selectedChromaId) ||
         getButtonIconPathForHol(data.selectedChromaId) ||
         (selectedChromaData && selectedChromaData.id === data.selectedChromaId
           ? selectedChromaData.buttonIconPath
@@ -1274,19 +1290,53 @@
         log.debug(
           `[FormsWheel] Arcane Fractured Jinx form detected: ${data.selectedChromaId}, buttonIconPath: ${selectedChromaData.buttonIconPath}`
         );
+      } else if (isKaisa(data.selectedChromaId)) {
+        // Uzi Kaisa form - get data from local functions
+        const baseFormId = 145070;
+        const kaisaChampionId = 145;
+
+        // Check if it's the base form or a form
+        if (data.selectedChromaId === baseFormId) {
+          // Base form
+          selectedChromaData = {
+            id: data.selectedChromaId,
+            primaryColor: null,
+            colors: [],
+            name: "Default",
+            buttonIconPath: getKaisaButtonIconPath(baseFormId),
+          };
+        } else {
+          // Uzi Kaisa form (145071, 145999)
+          const forms = getKaisaForms();
+          const form = forms.find((f) => f.id === data.selectedChromaId);
+          if (form) {
+            selectedChromaData = {
+              id: data.selectedChromaId,
+              primaryColor: null,
+              colors: [],
+              name: form.name || "Selected",
+              buttonIconPath: getKaisaButtonIconPath(form.id),
+            };
+          } else {
+            // Form not found - use button icon path anyway
+            selectedChromaData = {
+              id: data.selectedChromaId,
+              primaryColor: null,
+              colors: [],
+              name: "Selected",
+              buttonIconPath: getKaisaButtonIconPath(data.selectedChromaId),
+            };
+          }
+        }
+        log.debug(
+          `[FormsWheel] Uzi Kaisa form detected: ${data.selectedChromaId}, buttonIconPath: ${selectedChromaData.buttonIconPath}`
+        );
       } else if (isHolChroma(data.selectedChromaId)) {
-        // HOL chroma - get data from local functions
+        // HOL chroma - get data from local functions (Ahri only - Kaisa now uses forms)
         let baseSkinId;
         let championId;
 
         if (
-          data.selectedChromaId === 145070 ||
-          data.selectedChromaId === 145071
-        ) {
-          // Kai'Sa HOL
-          baseSkinId = 145070;
-          championId = 145;
-        } else if (
           data.selectedChromaId === 103085 ||
           data.selectedChromaId === 103086 ||
           data.selectedChromaId === 103087
@@ -1294,6 +1344,9 @@
           // Ahri HOL
           baseSkinId = 103085;
           championId = 103;
+        } else {
+          // Not a known HOL chroma
+          return;
         }
 
         // Check if it's the base skin or HOL chroma
@@ -1312,8 +1365,7 @@
           };
         } else {
           // HOL chroma
-          const holChromas =
-            championId === 145 ? getKaisaHolChromas() : getAhriHolChromas();
+          const holChromas = getAhriHolChromas();
           const holChroma = holChromas.find(
             (c) => c.id === data.selectedChromaId
           );
@@ -1437,15 +1489,14 @@
         buttonIconPath = getSonaButtonIconPath(data.currentSkinId);
       } else if (isJinx(data.currentSkinId)) {
         buttonIconPath = getJinxButtonIconPath(data.currentSkinId);
+      } else if (isKaisa(data.currentSkinId)) {
+        buttonIconPath = getKaisaButtonIconPath(data.currentSkinId);
       } else if (isHolChroma(data.currentSkinId)) {
-        // Determine base skin ID and champion ID for HOL
+        // Determine base skin ID and champion ID for HOL (Ahri only - Kaisa now uses forms)
         let baseSkinId;
         let championId;
 
-        if (data.currentSkinId === 145070 || data.currentSkinId === 145071) {
-          baseSkinId = 145070;
-          championId = 145;
-        } else if (
+        if (
           data.currentSkinId === 103085 ||
           data.currentSkinId === 103086 ||
           data.currentSkinId === 103087
@@ -1711,15 +1762,26 @@
     return forms;
   }
 
-  // Get Risen Legend Kai'Sa HOL chroma data locally (same as Python's _get_hol_chromas)
-  function getKaisaHolChromas() {
-    const chromas = [
-      { id: 145071, skinId: 145070, name: "Immortalized Legend", colors: [] },
+  // Get Uzi Kaisa Forms data locally
+  function getKaisaForms() {
+    const forms = [
+      {
+        id: 145071,
+        name: "Form 1",
+        colors: [],
+        form_path: "Kaisa/Forms/Uzi Kaisa Form 1.zip",
+      },
+      {
+        id: 145999,
+        name: "Form 2",
+        colors: [],
+        form_path: "Kaisa/Forms/Uzi Kaisa Form 2.zip",
+      },
     ];
     log.debug(
-      `[getKaisaHolChromas] Created ${chromas.length} Risen Legend Kai'Sa HOL chromas with real skin ID (145071)`
+      `[getKaisaForms] Created ${forms.length} Uzi Kaisa Forms with real IDs (145071, 145999)`
     );
-    return chromas;
+    return forms;
   }
 
   // Get Risen Legend Ahri HOL chroma data locally (same as Python's _get_ahri_hol_chromas)
@@ -2005,7 +2067,29 @@
     return path;
   }
 
-  // Get button icon path for HOL chromas (Kai'Sa and Ahri)
+  // Get local button icon path for Uzi Kaisa forms
+  // Path: assets/uzikaisa_buttons/{button_number}.png
+  // Maps: 145070 (base) -> 1.png, 145071 (form 1) -> 2.png, 145999 (form 2) -> 3.png
+  function getKaisaButtonIconPath(formId) {
+    // Request icon path from Python via bridge
+    // Python will return the local file path or serve it via HTTP
+    // Map form IDs to button numbers
+    let buttonNumber;
+    if (formId === 145070) {
+      buttonNumber = 1; // Base skin
+    } else if (formId === 145071) {
+      buttonNumber = 2; // Form 1
+    } else if (formId === 145999) {
+      buttonNumber = 3; // Form 2
+    } else {
+      // Fallback to form ID if unknown
+      buttonNumber = formId;
+    }
+    const path = `local-asset://uzikaisa_buttons/${buttonNumber}.png`;
+    return path;
+  }
+
+  // Get button icon path for HOL chromas (Ahri only - Kaisa now uses forms)
   function getHolButtonIconPath(championId, chromaId, baseSkinId) {
     // Ahri forms (103085, 103086, 103087) use fakerahri_buttons folder with numbered images
     if (championId === 103 || baseSkinId === 103085) {
@@ -2026,24 +2110,9 @@
       return path;
     }
     
-    // Kai'Sa HOL chromas use risen.png and immortal.png
-    // Determine which button icon to use based on chroma ID
-    // Base skins (145070) use "risen.png"
-    // HOL chromas (145071) use "immortal.png"
-    let imageName;
-
-    if (chromaId === baseSkinId) {
-      // Base skin - use "risen.png"
-      imageName = "risen.png";
-    } else {
-      // HOL chroma - use "immortal.png"
-      imageName = "immortal.png";
-    }
-
-    // Assets are in the root assets folder: assets/risen.png and assets/immortal.png
-    // Note: Python's get_asset_path() automatically adds "assets/" prefix, so we just use the filename
-    const path = `local-asset://${imageName}`;
-    return path;
+    // Kaisa is now handled via forms, so this only applies to Ahri
+    // If we reach here for Kaisa, return null (should not happen)
+    return null;
   }
 
   function isSpecialBaseSkin(skinId) {
@@ -2089,6 +2158,13 @@
     return (
       Number.isFinite(skinId) &&
       (skinId === 222060 || skinId === 222998 || skinId === 222999)
+    );
+  }
+
+  function isKaisa(skinId) {
+    return (
+      Number.isFinite(skinId) &&
+      (skinId === 145070 || skinId === 145071 || skinId === 145999)
     );
   }
 
@@ -3516,59 +3592,61 @@
       }
     }
 
-    // SPECIAL CASE: Risen Legend Kai'Sa (skin ID 145070) or Immortalized Legend (145071)
-    if (baseSkinId === 145070 || baseSkinId === 145071) {
-      log.debug(
-        `[getChromaData] Risen Legend Kai'Sa detected (base skin: 145070) - using local HOL chroma data`
-      );
-      const holChromas = getKaisaHolChromas();
-      const actualBaseSkinId = 145070; // Always use base skin ID
-      const kaisaChampionId = 145; // Kai'Sa champion ID
+    // SPECIAL CASE: Uzi Kaisa (skin ID 145070) - use local Forms data
+    // FormsWheel: Handle Kaisa forms using SUPPORTED_SKINS configuration
+    if (baseSkinId === 145070 || baseSkinId === 145071 || baseSkinId === 145999) {
+      const skinConfig = getSkinConfig(baseSkinId);
+      if (skinConfig && isSupportedSkin(baseSkinId)) {
+        log.debug(
+          `[getChromaData] Uzi Kaisa detected (base skin: 145070) - using local Forms data`
+        );
+        const forms = getKaisaForms();
+        const baseFormId = 145070; // Always use base skin ID
+        const kaisaChampionId = 145; // Kaisa champion ID
 
-      // Base skin (Risen Legend Kai'Sa)
-      const baseSkinChroma = {
-        id: actualBaseSkinId,
-        name: "Default",
-        imagePath: getLocalPreviewPath(
-          kaisaChampionId,
-          actualBaseSkinId,
-          actualBaseSkinId,
-          true
-        ),
-        colors: [],
-        primaryColor: null,
-        selected: false,
-        locked: false,
-        buttonIconPath: getHolButtonIconPath(
-          kaisaChampionId,
-          actualBaseSkinId,
-          actualBaseSkinId
-        ),
-      };
+        // Base skin (Uzi Kaisa base)
+        const baseSkinChroma = {
+          id: baseFormId,
+          name: "Default",
+          imagePath: getLocalPreviewPath(
+            kaisaChampionId,
+            baseFormId,
+            baseFormId,
+            true
+          ),
+          colors: [],
+          primaryColor: null,
+          selected: false,
+          locked: false,
+          buttonIconPath: `local-asset://${skinConfig.buttonFolder}/1.png`, // Use index-based path
+        };
 
-      // HOL chroma (Immortalized Legend)
-      const holChromaList = holChromas.map((chroma) => ({
-        id: chroma.id,
-        name: chroma.name,
-        imagePath: getLocalPreviewPath(
-          kaisaChampionId,
-          actualBaseSkinId,
-          chroma.id,
-          false
-        ),
-        colors: chroma.colors || [],
-        primaryColor: null,
-        selected: false,
-        locked: false, // HOL chromas are clickable
-        buttonIconPath: getHolButtonIconPath(
-          kaisaChampionId,
-          chroma.id,
-          actualBaseSkinId
-        ),
-      }));
+        // Forms (IDs 145071, 145999) - use index-based button paths
+        const formList = forms.map((form, index) => {
+          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${
+            index + 2
+          }.png`; // 2.png, 3.png
+          return {
+            id: form.id,
+            name: form.name,
+            imagePath: getLocalPreviewPath(
+              kaisaChampionId,
+              baseFormId,
+              form.id,
+              false
+            ),
+            colors: form.colors || [],
+            primaryColor: null, // Forms don't have colors
+            selected: false,
+            locked: false, // Forms are clickable
+            buttonIconPath: buttonIconPath,
+            form_path: form.form_path,
+          };
+        });
 
-      const allChromas = [baseSkinChroma, ...holChromaList];
-      return markSelectedChroma(allChromas, currentSkinId);
+        const allChromas = [baseSkinChroma, ...formList];
+        return markSelectedChroma(allChromas, currentSkinId);
+      }
     }
 
     // SPECIAL CASE: Risen Legend Ahri (skin ID 103085) or Immortalized Legend (103086) or Form 2 (103087)
@@ -4559,11 +4637,12 @@
       const isMorgana =
         selectedChromaData &&
         (selectedChromaData.id === 25080 || selectedChromaData.id === 25999);
+      const isKaisa =
+        selectedChromaData &&
+        (selectedChromaData.id === 145070 || selectedChromaData.id === 145071 || selectedChromaData.id === 145999);
       const isHolChroma =
         selectedChromaData &&
-        (selectedChromaData.id === 145070 ||
-          selectedChromaData.id === 145071 ||
-          selectedChromaData.id === 103085 ||
+        (selectedChromaData.id === 103085 ||
           selectedChromaData.id === 103086 ||
           selectedChromaData.id === 103087);
       const isDefault =
@@ -4571,10 +4650,12 @@
         (selectedChromaData.name === "Default" &&
           !isElementalistLux &&
           !isMorgana &&
+          !isKaisa &&
           !isHolChroma) ||
         (!selectedChromaData.primaryColor &&
           !isElementalistLux &&
           !isMorgana &&
+          !isKaisa &&
           !isHolChroma) ||
         selectedChromaData.id === 0;
 
