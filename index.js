@@ -956,7 +956,6 @@
     };
 
     // Helper to get buttonIconPath for Arcane Fractured Jinx forms
-    // Helper to get buttonIconPath for Arcane Fractured Jinx forms
     const getButtonIconPathForJinx = (chromaId) => {
       if (isJinx(chromaId)) {
         return getJinxButtonIconPath(chromaId);
