@@ -404,8 +404,8 @@
       direction: ltr;
       background: transparent;
       cursor: pointer;
-      height: 28px;
-      width: 28px;
+      height: 36px;
+      width: 36px;
       /* Keep the same positioning as base button for consistency */
       bottom: 1px;
       left: 50%;
@@ -866,8 +866,7 @@
     // Handle local asset URL response from Python
     const { assetPath, chromaId, url } = data;
     log.debug(
-      `[FormsWheel] Received local asset URL: ${url} for chroma ${
-        chromaId || "N/A"
+      `[FormsWheel] Received local asset URL: ${url} for chroma ${chromaId || "N/A"
       }`
     );
 
@@ -1469,8 +1468,7 @@
             (c) => c.id === data.selectedChromaId
           );
           log.debug(
-            `[FormsWheel] Looking for chroma ${
-              data.selectedChromaId
+            `[FormsWheel] Looking for chroma ${data.selectedChromaId
             } in base skin ${baseSkinId}, found: ${foundChroma ? "yes" : "no"}`
           );
         }
@@ -1480,7 +1478,7 @@
           const buttonIconPath =
             foundChroma.buttonIconPath ||
             (selectedChromaData &&
-            selectedChromaData.id === data.selectedChromaId
+              selectedChromaData.id === data.selectedChromaId
               ? selectedChromaData.buttonIconPath
               : null);
           selectedChromaData = {
@@ -2160,7 +2158,7 @@
       const path = `local-asset://fakerahri_buttons/${buttonNumber}.png`;
       return path;
     }
-    
+
     // Kaisa is now handled via forms, so this only applies to Ahri
     // If we reach here for Kaisa, return null (should not happen)
     return null;
@@ -2450,8 +2448,7 @@
           storeChampionSkins(championId, data.skins);
           const cacheEntry = championSkinCache.get(championId);
           log.debug(
-            `Champion ${championId} skin data cached (${
-              cacheEntry ? cacheEntry.size : 0
+            `Champion ${championId} skin data cached (${cacheEntry ? cacheEntry.size : 0
             } skins)`
           );
           return championSkinCache.get(championId);
@@ -2525,6 +2522,8 @@
     if (hoverButtonNormalUrl) {
       button.style.backgroundImage = `url('${hoverButtonNormalUrl}')`;
       button.style.backgroundSize = "contain";
+      button.style.backgroundRepeat = "no-repeat";
+      button.style.backgroundPosition = "center";
       button.style.backgroundColor = "transparent";
       button.style.border = "none";
     } else {
@@ -2564,6 +2563,8 @@
       if (hoverButtonHoverUrl) {
         button.style.backgroundImage = `url('${hoverButtonHoverUrl}')`;
         button.style.backgroundColor = "transparent";
+        button.style.backgroundRepeat = "no-repeat";
+        button.style.backgroundPosition = "center";
         button.style.border = "none";
       } else {
         button.style.backgroundColor = "#f0e6d2";
@@ -2801,15 +2802,6 @@
         log.info(
           "[FormsWheel] Button hidden, closing panel and marking as non-interactive"
         );
-        existingPanel.setAttribute("data-no-button", "true");
-        existingPanel.style.pointerEvents = "none";
-        existingPanel.style.cursor = "default";
-        // Remove the panel after a short delay to allow any animations
-        setTimeout(() => {
-          if (existingPanel.parentNode) {
-            existingPanel.remove();
-          }
-        }, 100);
       }
     }
   }
@@ -2886,6 +2878,34 @@
       return;
     }
 
+    // CHECK 4 (Strict Wrapper Mode):
+    // If ANY active-skin wrapper exists globally, we are in Swiftplay/Grid mode.
+    // In this mode, we STRICTLY BLOCK generic parent items (skin-selection-item) from having buttons.
+    // The button MUST only be on the thumbnail-wrapper.
+    const isWrapperMode = document.querySelector(".thumbnail-wrapper.active-skin") !== null;
+    const isGenericParent =
+      skinItem.classList.contains("skin-selection-item") &&
+      !skinItem.classList.contains("thumbnail-wrapper");
+
+    if (isWrapperMode && isGenericParent) {
+      // We are in Swiftplay mode and this is a generic parent.
+      // It is NOT allowed to have a button. Remove if exists.
+      const existingButton = skinItem.querySelector(BUTTON_SELECTOR);
+      if (existingButton) {
+        existingButton.remove();
+        // Also ensure we remove any direct children that look like our buttons
+        // (Just in case specific selector fails but class matches)
+        Array.from(skinItem.children).forEach(child => {
+          if (child.classList.contains(BUTTON_CLASS)) {
+            child.remove();
+          }
+        });
+      }
+      return;
+    }
+
+
+
     // Check if this is Swiftplay mode
     const isSwiftplayActive =
       skinItem.classList.contains("thumbnail-wrapper") &&
@@ -2956,7 +2976,7 @@
     try {
       if (!existingButton) {
         const fakeButton = createFakeButton();
-        
+
         // For Swiftplay mode (thumbnail-wrapper with active-skin), place button directly on thumbnail-wrapper
         if (
           skinItem.classList.contains("thumbnail-wrapper") &&
@@ -2976,7 +2996,7 @@
           skinItem.appendChild(fakeButton);
           existingButton = fakeButton;
         }
-        
+
         emitBridgeLog("button_created", {
           skinId: currentSkinId,
           hasChromas,
@@ -3015,12 +3035,35 @@
       scanSkinSelection._lastState = currentState;
     }
 
-    skinItems.forEach((skinItem) => {
-      ensureFakeButton(skinItem);
-    });
+    // Attempt 6: Exclusive Scan Mode
+    // If we have thumbnail wrappers (Grid/Swiftplay), ONLY they should have buttons.
+    // Generic skin-selection-item parents are strictly forbidden in this mode.
+    const hasWrappers = thumbnailWrappers.length > 0;
 
-    thumbnailWrappers.forEach((thumbnailWrapper) => {
-      ensureFakeButton(thumbnailWrapper);
+    // 1. Always process wrappers if they exist
+    thumbnailWrappers.forEach((wrapper) => ensureFakeButton(wrapper));
+
+    // 2. Process skin items CONDITIONALLY
+    skinItems.forEach((skinItem) => {
+      // If we are in Wrapper Mode (hasWrappers is true), 
+      // STRICTLY BLOCK generic items from having buttons.
+      if (hasWrappers) {
+        // Safety: Remove any button that might have been added to this generic item
+        const existingButton = skinItem.querySelector(BUTTON_SELECTOR);
+        if (existingButton) {
+          existingButton.remove();
+        }
+        // Also remove direct children that look like buttons (extra safety)
+        Array.from(skinItem.children).forEach(child => {
+          if (child.classList.contains(BUTTON_CLASS)) {
+            child.remove();
+          }
+        });
+        return;
+      }
+
+      // Standard Mode (Carousel): Process normally
+      ensureFakeButton(skinItem);
     });
   }
 
@@ -3132,8 +3175,7 @@
             // The official client has chromas in the skin object from Ember context
             if (skin.chromas || skin.childSkins) {
               log.debug(
-                `[getSkinData] Found chromas in Ember context: ${
-                  (skin.chromas || skin.childSkins)?.length || 0
+                `[getSkinData] Found chromas in Ember context: ${(skin.chromas || skin.childSkins)?.length || 0
                 } chromas`
               );
             }
@@ -3242,7 +3284,7 @@
     // This ensures we show the correct selected chroma even if skinMonitorState has the base skin ID
     const currentSkinId =
       pythonChromaState?.selectedChromaId !== null &&
-      pythonChromaState?.selectedChromaId !== undefined
+        pythonChromaState?.selectedChromaId !== undefined
         ? pythonChromaState.selectedChromaId
         : skinMonitorState?.skinId || null;
 
@@ -3332,9 +3374,8 @@
 
         // Forms (IDs 82998, 82999) - use index-based button paths
         const formList = forms.map((form, index) => {
-          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${
-            index + 2
-          }.png`; // 2.png, 3.png
+          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${index + 2
+            }.png`; // 2.png, 3.png
           return {
             id: form.id,
             name: form.name,
@@ -3389,9 +3430,8 @@
 
         // Forms (ID 25999) - use index-based button paths
         const formList = forms.map((form, index) => {
-          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${
-            index + 2
-          }.png`; // 2.png
+          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${index + 2
+            }.png`; // 2.png
           return {
             id: form.id,
             name: form.name,
@@ -3446,9 +3486,8 @@
 
         // Forms (IDs 875998, 875999) - use index-based button paths
         const formList = forms.map((form, index) => {
-          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${
-            index + 2
-          }.png`; // 2.png, 3.png
+          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${index + 2
+            }.png`; // 2.png, 3.png
           return {
             id: form.id,
             name: form.name,
@@ -3503,9 +3542,8 @@
 
         // Forms (IDs 147002, 147003) - use index-based button paths
         const formList = forms.map((form, index) => {
-          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${
-            index + 2
-          }.png`; // 2.png, 3.png
+          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${index + 2
+            }.png`; // 2.png, 3.png
           return {
             id: form.id,
             name: form.name,
@@ -3560,9 +3598,8 @@
 
         // Forms (IDs 37998, 37999) - use index-based button paths
         const formList = forms.map((form, index) => {
-          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${
-            index + 2
-          }.png`; // 2.png, 3.png
+          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${index + 2
+            }.png`; // 2.png, 3.png
           return {
             id: form.id,
             name: form.name,
@@ -3617,9 +3654,8 @@
 
         // Forms (IDs 222998, 222999) - use index-based button paths
         const formList = forms.map((form, index) => {
-          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${
-            index + 2
-          }.png`; // 2.png, 3.png
+          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${index + 2
+            }.png`; // 2.png, 3.png
           return {
             id: form.id,
             name: form.name,
@@ -3674,9 +3710,8 @@
 
         // Forms (IDs 145071, 145999) - use index-based button paths
         const formList = forms.map((form, index) => {
-          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${
-            index + 2
-          }.png`; // 2.png, 3.png
+          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${index + 2
+            }.png`; // 2.png, 3.png
           return {
             id: form.id,
             name: form.name,
@@ -4194,11 +4229,9 @@
       emberView.className = "ember-view";
 
       const chromaButton = document.createElement("div");
-      chromaButton.className = `chroma-skin-button ${
-        chroma.locked ? "locked" : ""
-      } ${chroma.selected ? "selected" : ""} ${
-        chroma.purchaseDisabled ? "purchase-disabled" : ""
-      }`;
+      chromaButton.className = `chroma-skin-button ${chroma.locked ? "locked" : ""
+        } ${chroma.selected ? "selected" : ""} ${chroma.purchaseDisabled ? "purchase-disabled" : ""
+        }`;
 
       const contents = document.createElement("div");
       contents.className = "contents";
@@ -4237,10 +4270,8 @@
         contents.style.backgroundPosition = "center";
         contents.style.backgroundRepeat = "no-repeat";
         log.debug(
-          `[FormsWheel] Button ${index + 1}: ${
-            chroma.name
-          } - using custom asset button from ${
-            skinConfig.buttonFolder
+          `[FormsWheel] Button ${index + 1}: ${chroma.name
+          } - using custom asset button from ${skinConfig.buttonFolder
           } (placeholder until Python serves)`
         );
       } else if (
@@ -4273,8 +4304,7 @@
         contents.style.backgroundPosition = "center";
         contents.style.backgroundRepeat = "no-repeat";
         log.debug(
-          `[FormsWheel] Button ${index + 1}: ${
-            chroma.name
+          `[FormsWheel] Button ${index + 1}: ${chroma.name
           } - using local button icon (placeholder until Python serves)`
         );
       } else {
@@ -4292,8 +4322,7 @@
           contents.style.backgroundPosition = "center";
           contents.style.backgroundRepeat = "no-repeat";
           log.debug(
-            `[FormsWheel] Button ${index + 1}: ${
-              chroma.name
+            `[FormsWheel] Button ${index + 1}: ${chroma.name
             } - using default gradient`
           );
         } else {
@@ -4309,8 +4338,7 @@
             contents.style.backgroundColor = color;
             contents.style.background = color;
             log.debug(
-              `[FormsWheel] Button ${index + 1}: ${
-                chroma.name
+              `[FormsWheel] Button ${index + 1}: ${chroma.name
               } with color ${color}`
             );
           } else if (chroma.imagePath) {
@@ -4320,8 +4348,7 @@
             contents.style.backgroundPosition = "center";
             contents.style.backgroundRepeat = "no-repeat";
             log.debug(
-              `[FormsWheel] Button ${index + 1}: ${chroma.name} with image ${
-                chroma.imagePath
+              `[FormsWheel] Button ${index + 1}: ${chroma.name} with image ${chroma.imagePath
               }`
             );
           } else {
@@ -4332,8 +4359,7 @@
             contents.style.backgroundPosition = "center";
             contents.style.backgroundRepeat = "no-repeat";
             log.debug(
-              `[FormsWheel] Button ${index + 1}: ${
-                chroma.name
+              `[FormsWheel] Button ${index + 1}: ${chroma.name
               } - no color or image, using default`
             );
           }
@@ -4930,8 +4956,7 @@
       skinItem
     );
     log.info(
-      `[FormsWheel] Champion ID: ${championId}, Cache has data: ${
-        championId ? championSkinCache.has(championId) : "N/A"
+      `[FormsWheel] Champion ID: ${championId}, Cache has data: ${championId ? championSkinCache.has(championId) : "N/A"
       }`
     );
     if (championId) {
