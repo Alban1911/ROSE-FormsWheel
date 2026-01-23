@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @name ROSE-FormsWheel
  * @author Rose Team
  * @description Custom chroma wheel with asset-based buttons - Adapted from ROSE-ChromaWheel
@@ -85,6 +85,16 @@
         formIds: [145070, 145071, 145999], // Base + 2 forms
         formNames: ["Default", "Form 1", "Form 2"],
         championId: 145,
+      },
+    ],
+    [
+      234043,
+      {
+        // Viego - has Forms, not chromas
+        buttonFolder: "rrviego_buttons",
+        formIds: [234043, 234994, 234995, 234996, 234997, 234998, 234999], // Base + 6 forms
+        formNames: ["Default", "Form 2", "Form 3", "Form 4", "Form 5", "Form 6", "Form 7"],
+        championId: 234,
       },
     ],
   ]);
@@ -1051,6 +1061,14 @@
       return null;
     };
 
+    // Helper to get buttonIconPath for Viego forms
+    const getButtonIconPathForViego = (chromaId) => {
+      if (isViego(chromaId)) {
+        return getViegoButtonIconPath(chromaId);
+      }
+      return null;
+    };
+
     // Helper to get buttonIconPath for HOL chromas (Ahri only - Kaisa now uses forms)
     const getButtonIconPathForHol = (chromaId) => {
       if (isHolChroma(chromaId)) {
@@ -1083,6 +1101,7 @@
         getButtonIconPathForSona(data.selectedChromaId) ||
         getButtonIconPathForJinx(data.selectedChromaId) ||
         getButtonIconPathForKaisa(data.selectedChromaId) ||
+        getButtonIconPathForViego(data.selectedChromaId) ||
         getButtonIconPathForHol(data.selectedChromaId) ||
         (selectedChromaData && selectedChromaData.id === data.selectedChromaId
           ? selectedChromaData.buttonIconPath
@@ -1410,6 +1429,47 @@
         log.debug(
           `[FormsWheel] Uzi Kaisa form detected: ${data.selectedChromaId}, buttonIconPath: ${selectedChromaData.buttonIconPath}`
         );
+      } else if (isViego(data.selectedChromaId)) {
+        // Viego form - get data from local functions
+        const baseFormId = 234043;
+        const viegoChampionId = 234;
+
+        // Check if it's the base form or a form
+        if (data.selectedChromaId === baseFormId) {
+          // Base form
+          selectedChromaData = {
+            id: data.selectedChromaId,
+            primaryColor: null,
+            colors: [],
+            name: "Default",
+            buttonIconPath: getViegoButtonIconPath(baseFormId),
+          };
+        } else {
+          // Viego form (234994-234999)
+          const forms = getViegoForms();
+          const form = forms.find((f) => f.id === data.selectedChromaId);
+          if (form) {
+            selectedChromaData = {
+              id: data.selectedChromaId,
+              primaryColor: null,
+              colors: [],
+              name: form.name || "Selected",
+              buttonIconPath: getViegoButtonIconPath(form.id),
+            };
+          } else {
+            // Form not found - use button icon path anyway
+            selectedChromaData = {
+              id: data.selectedChromaId,
+              primaryColor: null,
+              colors: [],
+              name: "Selected",
+              buttonIconPath: getViegoButtonIconPath(data.selectedChromaId),
+            };
+          }
+        }
+        log.debug(
+          `[FormsWheel] Viego form detected: ${data.selectedChromaId}, buttonIconPath: ${selectedChromaData.buttonIconPath}`
+        );
       } else if (isHolChroma(data.selectedChromaId)) {
         // HOL chroma - get data from local functions (Ahri only - Kaisa now uses forms)
         let baseSkinId;
@@ -1569,6 +1629,8 @@
         buttonIconPath = getJinxButtonIconPath(data.currentSkinId);
       } else if (isKaisa(data.currentSkinId)) {
         buttonIconPath = getKaisaButtonIconPath(data.currentSkinId);
+      } else if (isViego(data.currentSkinId)) {
+        buttonIconPath = getViegoButtonIconPath(data.currentSkinId);
       } else if (isHolChroma(data.currentSkinId)) {
         // Determine base skin ID and champion ID for HOL (Ahri only - Kaisa now uses forms)
         let baseSkinId;
@@ -1858,6 +1920,52 @@
     ];
     log.debug(
       `[getKaisaForms] Created ${forms.length} Uzi Kaisa Forms with real IDs (145071, 145999)`
+    );
+    return forms;
+  }
+
+  // Get Viego Forms data locally
+  function getViegoForms() {
+    const forms = [
+      {
+        id: 234994,
+        name: "Form 2",
+        colors: [],
+        form_path: "Viego/Forms/Viego Form 2.zip",
+      },
+      {
+        id: 234995,
+        name: "Form 3",
+        colors: [],
+        form_path: "Viego/Forms/Viego Form 3.zip",
+      },
+      {
+        id: 234996,
+        name: "Form 4",
+        colors: [],
+        form_path: "Viego/Forms/Viego Form 4.zip",
+      },
+      {
+        id: 234997,
+        name: "Form 5",
+        colors: [],
+        form_path: "Viego/Forms/Viego Form 5.zip",
+      },
+      {
+        id: 234998,
+        name: "Form 6",
+        colors: [],
+        form_path: "Viego/Forms/Viego Form 6.zip",
+      },
+      {
+        id: 234999,
+        name: "Form 7",
+        colors: [],
+        form_path: "Viego/Forms/Viego Form 7.zip",
+      },
+    ];
+    log.debug(
+      `[getViegoForms] Created ${forms.length} Viego Forms with real IDs (234994-234999)`
     );
     return forms;
   }
@@ -2167,6 +2275,36 @@
     return path;
   }
 
+  // Get local button icon path for Viego forms
+  // Path: assets/rrviego_buttons/{button_number}.png
+  // Maps: 234043 (base) -> 1.png, 234994 (2nd form) -> 2.png, 234995 (3rd form) -> 3.png, etc.
+  function getViegoButtonIconPath(formId) {
+    // Request icon path from Python via bridge
+    // Python will return the local file path or serve it via HTTP
+    // Map form IDs to button numbers
+    let buttonNumber;
+    if (formId === 234043) {
+      buttonNumber = 1; // Base skin
+    } else if (formId === 234994) {
+      buttonNumber = 2; // 2nd form
+    } else if (formId === 234995) {
+      buttonNumber = 3; // 3rd form
+    } else if (formId === 234996) {
+      buttonNumber = 4; // 4th form
+    } else if (formId === 234997) {
+      buttonNumber = 5; // 5th form
+    } else if (formId === 234998) {
+      buttonNumber = 6; // 6th form
+    } else if (formId === 234999) {
+      buttonNumber = 7; // 7th form
+    } else {
+      // Fallback to form ID if unknown
+      buttonNumber = formId;
+    }
+    const path = `local-asset://rrviego_buttons/${buttonNumber}.png`;
+    return path;
+  }
+
   // Get button icon path for HOL chromas (Ahri only - Kaisa now uses forms)
   function getHolButtonIconPath(championId, chromaId, baseSkinId) {
     // Ahri forms (103085, 103086, 103087) use fakerahri_buttons folder with numbered images
@@ -2243,6 +2381,14 @@
     return (
       Number.isFinite(skinId) &&
       (skinId === 145070 || skinId === 145071 || skinId === 145999)
+    );
+  }
+
+  function isViego(skinId) {
+    return (
+      Number.isFinite(skinId) &&
+      (skinId === 234043 || skinId === 234994 || skinId === 234995 || 
+       skinId === 234996 || skinId === 234997 || skinId === 234998 || skinId === 234999)
     );
   }
 
@@ -3746,6 +3892,63 @@
             name: form.name,
             imagePath: getLocalPreviewPath(
               kaisaChampionId,
+              baseFormId,
+              form.id,
+              false
+            ),
+            colors: form.colors || [],
+            primaryColor: null, // Forms don't have colors
+            selected: false,
+            locked: false, // Forms are clickable
+            buttonIconPath: buttonIconPath,
+            form_path: form.form_path,
+          };
+        });
+
+        const allChromas = [baseSkinChroma, ...formList];
+        return markSelectedChroma(allChromas, currentSkinId);
+      }
+    }
+
+    // SPECIAL CASE: Viego (skin ID 234043) - use local Forms data
+    // FormsWheel: Handle Viego forms using SUPPORTED_SKINS configuration
+    if (baseSkinId === 234043 || baseSkinId === 234994 || baseSkinId === 234995 || 
+        baseSkinId === 234996 || baseSkinId === 234997 || baseSkinId === 234998 || baseSkinId === 234999) {
+      const skinConfig = getSkinConfig(baseSkinId);
+      if (skinConfig && isSupportedSkin(baseSkinId)) {
+        log.debug(
+          `[getChromaData] Viego detected (base skin: 234043) - using local Forms data`
+        );
+        const forms = getViegoForms();
+        const baseFormId = 234043; // Always use base skin ID
+        const viegoChampionId = 234; // Viego champion ID
+
+        // Base skin (Viego base)
+        const baseSkinChroma = {
+          id: baseFormId,
+          name: "Default",
+          imagePath: getLocalPreviewPath(
+            viegoChampionId,
+            baseFormId,
+            baseFormId,
+            true
+          ),
+          colors: [],
+          primaryColor: null,
+          selected: false,
+          locked: false,
+          buttonIconPath: `local-asset://${skinConfig.buttonFolder}/1.png`, // Use index-based path
+        };
+
+        // Forms (IDs 234994-234999) - use index-based button paths
+        const formList = forms.map((form, index) => {
+          const buttonIconPath = `local-asset://${skinConfig.buttonFolder}/${index + 2
+            }.png`; // 2.png, 3.png, 4.png, 5.png, 6.png, 7.png
+          return {
+            id: form.id,
+            name: form.name,
+            imagePath: getLocalPreviewPath(
+              viegoChampionId,
               baseFormId,
               form.id,
               false
