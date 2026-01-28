@@ -99,6 +99,21 @@
     ],
   ]);
 
+  /**
+   * Escape HTML special characters to prevent XSS (CWE-79)
+   * @param {string} str - String to escape
+   * @returns {string} Escaped string safe for innerHTML
+   */
+  function escapeHtml(str) {
+    if (typeof str !== 'string') return String(str);
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   function isSupportedSkin(skinId) {
     if (!skinId) return false;
     if (SUPPORTED_SKINS.has(skinId)) return true;
